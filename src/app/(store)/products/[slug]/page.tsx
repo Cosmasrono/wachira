@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import ConsultLink from "@/components/ConsultLink";
 import AddToBag from "@/components/AddToBag";
 import ProductImage from "@/components/ProductImage";
 import ProductCard from "@/components/ProductCard";
-import { categoryLabel, CUSTOM_LEAD_TIME, DELIVERY, FREE_NAIROBI_OVER, SITE } from "@/lib/config";
+import { categoryLabel, CUSTOM_LEAD_TIME, DELIVERY, FREE_NAIROBI_OVER } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ksh, splitList } from "@/lib/format";
 
@@ -31,7 +32,6 @@ export default async function ProductPage({ params }: Props) {
 
   const images = [p.image, p.image2].filter(Boolean) as string[];
   const related = await db.product.findMany({ where: { active: true, category: p.category, id: { not: p.id } }, take: 4, orderBy: { createdAt: "desc" } });
-  const enquiry = `Hi Wachira, I'd like help with ${p.name} (/products/${p.slug}). Could you advise on fit, fabric and care?`;
 
   return (
     <>
@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: Props) {
       <div className="gallery">
         {(images.length ? images : [null]).map((src, i) => (
           <div className="shot" key={i}>
-            <ProductImage src={src} alt={i === 0 ? p.name : `${p.name}, view ${i + 1}`} priority={i === 0} sizes="(max-width: 900px) 100vw, 50vw" />
+            <ProductImage src={src} alt={i === 0 ? p.name : `${p.name}, view ${i + 1}`} fit="contain" priority={i === 0} sizes="(max-width: 900px) 100vw, 50vw" />
           </div>
         ))}
       </div>
@@ -56,24 +56,18 @@ export default async function ProductPage({ params }: Props) {
             {splitList(p.colors).map((c) => <span key={c} className="sw" style={{ background: c }} />)}
           </div>
         )}
-        <AddToBag
-          key={p.id}
-          product={{
-            id: p.id,
-            slug: p.slug,
-            name: p.name,
-            price: p.price,
-            image: p.image,
-            sizes: splitList(p.sizes),
-            measureFields: splitList(p.measureFields),
-            allowCustom: p.allowCustom,
-          }}
-        />
-        <a className="product-enquiry" href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(enquiry)}`} target="_blank" rel="noopener noreferrer">Ask about this piece on WhatsApp ↗</a>
+        <p className="price">{p.price > 0 ? ksh(p.price) : "Price on consultation"}</p>
+        {p.price > 0 && <AddToBag key={p.id} product={{
+          id: p.id, slug: p.slug, name: p.name, price: p.price, image: p.image,
+          sizes: splitList(p.sizes), measureFields: splitList(p.measureFields), allowCustom: p.allowCustom,
+        }} />}
+        <p>Like this style? Consult with us on WhatsApp about fabric, fit, colours and availability. We will confirm your measurements, price and delivery together.</p>
+        <p className="hint">Available sizes: {splitList(p.sizes).join(", ")}. {p.allowCustom && "Made-to-measure options available."}</p>
+        <ConsultLink name={p.name} slug={p.slug} className="btn primary">Consult about this outfit on WhatsApp ↗</ConsultLink>
         <div className="product-details">
-          <details className="detail-panel"><summary>Delivery & collection</summary><p>Free pickup in Nairobi CBD. Nairobi delivery is {ksh(DELIVERY.NAIROBI.fee)}, or free on orders of {ksh(FREE_NAIROBI_OVER)} or more. Other counties: {ksh(DELIVERY.COUNTY.fee)}.</p>{p.allowCustom && <p>Made-to-measure pieces take {CUSTOM_LEAD_TIME} to make after payment, before delivery.</p>}<p>Track progress using the order link you receive at checkout.</p></details>
+          <details className="detail-panel"><summary>Delivery & collection</summary><p>Free pickup in Nairobi CBD. Nairobi delivery is {ksh(DELIVERY.NAIROBI.fee)}, or free on orders of {ksh(FREE_NAIROBI_OVER)} or more. Other counties: {ksh(DELIVERY.COUNTY.fee)}.</p>{p.allowCustom && <p>Made-to-measure pieces take {CUSTOM_LEAD_TIME} to make after payment, before delivery.</p>}<p>We will confirm progress and delivery with you on WhatsApp.</p></details>
           <details className="detail-panel"><summary>Fabric, care & fit advice</summary><p>Contact us about this piece for fabric composition, care instructions and sizing advice before ordering. When your garment arrives, follow its care label.</p></details>
-          <details className="detail-panel"><summary>Exchanges & alterations</summary><p>Need help with the fit? Contact us with your order number. Ask us to confirm the exchange and alteration terms for this style before ordering, especially for custom pieces.</p></details>
+          <details className="detail-panel"><summary>Exchanges & alterations</summary><p>Need help with the fit? Continue your WhatsApp conversation with us. Ask us to confirm the exchange and alteration terms for this style before ordering, especially for custom pieces.</p></details>
         </div>
       </div>
     </div>

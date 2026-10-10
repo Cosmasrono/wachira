@@ -1,10 +1,9 @@
-import { SITE } from "@/lib/config";
+import ConsultLink from "./ConsultLink";
 
 export default function WhatsAppButton() {
-  const text = encodeURIComponent("Hi Wachira, I have a question about an item.");
   return (
-    <a className="wa" href={`https://wa.me/${SITE.whatsapp}?text=${text}`} target="_blank" rel="noopener noreferrer">
+    <ConsultLink className="wa">
       Chat on WhatsApp
-    </a>
+    </ConsultLink>
   );
 }

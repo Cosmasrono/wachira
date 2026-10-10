@@ -16,6 +16,11 @@ export async function requireCustomer(next: string) {
   return customer;
 }
 
+/** True when the order was placed by this shopper (matched the same way as the account page). */
+export function ownsOrder(customer: Customer, order: { customerUid: string | null; customerEmail: string | null }) {
+  return order.customerUid === customer.uid || (!!order.customerEmail && order.customerEmail === customer.email);
+}
+
 /** Only same-site paths, so a crafted link can't send shoppers elsewhere after sign-in. */
 export function safeNext(next: string | undefined) {
   return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/shop";

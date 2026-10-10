@@ -27,7 +27,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
 
       {actions.length > 0 && (
         <div className="panel">
-          <h2>Update order</h2>
+          <h2>Review &amp; update order</h2>
           <form action={updateOrderStatus} className="status-form">
             <input type="hidden" name="id" value={order.id} />
             <label htmlFor="note">Note (optional, e.g. rider name or courier tracking number)
@@ -36,7 +36,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
             <div className="cta-row">
               {actions.map((s) => (
                 <button key={s} name="status" value={s} className={s === "CANCELLED" ? "btn danger" : "btn primary"}>
-                  {s === "CANCELLED" ? "Cancel order" : `Mark as ${statusLabel(s, order.deliveryMethod).toLowerCase()}`}
+                  {s === "CANCELLED" ? "Cancel order" : s === "PAID" ? "Verify payment & mark paid" : `Mark as ${statusLabel(s, order.deliveryMethod).toLowerCase()}`}
                 </button>
               ))}
             </div>

@@ -20,9 +20,10 @@ export default function PaymentWatcher({ number, status, paymentNote, mpesaPhone
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [waitedTooLong, setWaitedTooLong] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (status !== "PENDING_PAYMENT") return;
+    if (status !== "PENDING_PAYMENT" && status !== "PAYMENT_FAILED") return;
     setWaitedTooLong(false);
     const started = Date.now();
     const timer = setInterval(async () => {
@@ -39,7 +40,7 @@ export default function PaymentWatcher({ number, status, paymentNote, mpesaPhone
       }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [number, status, router]);
+  }, [number, status, router, attempt]);
 
   async function retry(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +54,8 @@ export default function PaymentWatcher({ number, status, paymentNote, mpesaPhone
     const data = await res?.json().catch(() => ({}));
     setBusy(false);
     if (!res?.ok) return setError(data?.error ?? "Couldn't send the prompt. Try again.");
+    setWaitedTooLong(false);
+    setAttempt((value) => value + 1);
     router.refresh();
   }
 

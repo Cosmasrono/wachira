@@ -19,6 +19,8 @@ export async function priceOrder(items: OrderInput["items"], method: DeliveryMet
       throw new PricingError("One of the items is no longer available. Remove it from your bag and try again.");
     }
 
+    if (p.price <= 0) throw new PricingError(`Please consult with us on WhatsApp about ${p.name} before ordering.`);
+
     if (item.measurements) {
       const fields = [...splitList(p.measureFields), ALWAYS_MEASURE];
       if (!p.allowCustom || fields.length === 1) {

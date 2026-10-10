@@ -11,17 +11,18 @@ export default function Footer() {
       </div>
       <div>
         <p className="label">Help</p>
-        <p>WhatsApp: {displayPhone(SITE.whatsapp)}</p>
-        <p>Delivery across Kenya · Nairobi CBD pickup</p>
-        <p><Link href="/#made-to-measure">How made to measure works</Link></p>
+        <p>{/^\d{10,15}$/.test(SITE.whatsapp) ? `WhatsApp: ${displayPhone(SITE.whatsapp)}` : "WhatsApp consultations coming soon"}</p>
+        <p>Delivery across Kenya &middot; Nairobi CBD pickup</p>
+        <p><Link href="/#two-ways">How made to measure works</Link></p>
       </div>
       <div>
         <p className="label">Shop</p>
         <p><Link href="/shop">All clothes</Link></p>
-        <p><Link href="/shop?category=women">Women</Link> · <Link href="/shop?category=men">Men</Link></p>
-        <p><Link href="/#our-story">Our story</Link></p>
+        <p><Link href="/shop?category=women">Women</Link> &middot; <Link href="/shop?category=men">Men</Link></p>
+        <p><Link href="/#steps-h">How consultations work</Link></p>
       </div>
-      <p className="copy">© {new Date().getFullYear()} {SITE.name}</p>
+      <p><Link href="/admin">Admin sign in</Link></p>
+      <p className="copy">&copy; {new Date().getFullYear()} {SITE.name}. All rights reserved.</p>
     </footer>
   );
 }

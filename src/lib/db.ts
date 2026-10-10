@@ -1,10 +1,10 @@
-import { PrismaClient, Prisma } from "../../prisma/client";
+import { PrismaClient, Prisma } from "../../node_modules/.prisma/wachira-client";
 
 // Reuse one client across hot reloads in development.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-// Invalidate stale in-memory client if the user model isn't present
-if (globalForPrisma.prisma && !("user" in globalForPrisma.prisma)) {
+// Invalidate a client cached before the payment and email models were added.
+if (globalForPrisma.prisma && !("paymentAttempt" in globalForPrisma.prisma)) {
   delete globalForPrisma.prisma;
 }
 
@@ -15,4 +15,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export { Prisma };
-export type { Product, Order, OrderItem, OrderEvent, LoginCode, User } from "../../prisma/client";
+export type { Product, Order, OrderItem, OrderEvent, LoginCode, User } from "../../node_modules/.prisma/wachira-client";

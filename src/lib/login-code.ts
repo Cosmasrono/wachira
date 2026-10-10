@@ -4,6 +4,7 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { mailConfigured, sendMail } from "./mail";
 import type { SessionKind, SessionUser } from "./session";
+import { allowAuthAttempt } from "./rate-limit";
 
 /** How long a code works. */
 const CODE_MINUTES = 10;
@@ -24,6 +25,9 @@ export type SendResult = { ok: true } | { ok: false; error: string };
 
 export async function sendLoginCode(kind: SessionKind, rawEmail: string): Promise<SendResult> {
   const email = normalizeEmail(rawEmail);
+  if (!await allowAuthAttempt(`code-send:${kind}`, email, 1, RESEND_SECONDS * 1000)) {
+    return { ok: false, error: "A code was just sent. Wait a minute before asking for another." };
+  }
   const recent = await db.loginCode.findFirst({
     where: { email, kind, createdAt: { gt: new Date(Date.now() - RESEND_SECONDS * 1000) } },
   });
@@ -66,15 +70,20 @@ export async function checkLoginCode(kind: SessionKind, rawEmail: string, rawCod
 
   const row = await db.loginCode.findFirst({ where: { email, kind }, orderBy: { createdAt: "desc" } });
   if (!row || row.expiresAt < new Date() || row.attempts >= MAX_ATTEMPTS) return null;
+  const claimed = await db.loginCode.updateMany({
+    where: { id: row.id, attempts: { lt: MAX_ATTEMPTS }, expiresAt: { gt: new Date() } },
+    data: { attempts: { increment: 1 } },
+  });
+  if (!claimed.count) return null;
 
   const expected = Buffer.from(row.codeHash, "hex");
   const given = Buffer.from(hashCode(email, kind, code), "hex");
   if (!timingSafeEqual(expected, given)) {
-    await db.loginCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
     return null;
   }
 
-  await db.loginCode.deleteMany({ where: { email, kind } });
+  const consumed = await db.loginCode.deleteMany({ where: { id: row.id, expiresAt: { gt: new Date() } } });
+  if (!consumed.count) return null;
   // The email is the account: owning the inbox is what proves who someone is.
   return { uid: email, email };
 }

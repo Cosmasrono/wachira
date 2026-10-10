@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PaymentWatcher from "@/components/PaymentWatcher";
 import { CUSTOM_LEAD_TIME, DELIVERY, type DeliveryMethod } from "@/lib/config";
+import { ownsOrder, requireCustomer } from "@/lib/customer";
 import { db } from "@/lib/db";
 import { displayPhone, ksh } from "@/lib/format";
 import { statusLabel, trackerSteps } from "@/lib/order-status";
@@ -11,8 +12,10 @@ export const metadata: Metadata = { title: "Your order", robots: { index: false 
 
 export default async function OrderPage({ params }: { params: Promise<{ number: string }> }) {
   const { number } = await params;
+  const customer = await requireCustomer(`/orders/${number}`);
   const order = await db.order.findUnique({ where: { number }, include: { items: true } });
-  if (!order) notFound();
+  // Someone else's order looks the same as a missing one, so order numbers can't be probed.
+  if (!order || !ownsOrder(customer, order)) notFound();
 
   const pickup = order.deliveryMethod === "PICKUP";
   const paid = !["PENDING_PAYMENT", "PAYMENT_FAILED"].includes(order.status);

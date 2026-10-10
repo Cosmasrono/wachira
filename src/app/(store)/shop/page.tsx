@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
-import { CATEGORIES } from "@/lib/config";
+import StyleGallery from "@/components/StyleGallery";
+import { CATEGORIES, CUSTOM_FEE, CUSTOM_LEAD_TIME } from "@/lib/config";
+import { ksh } from "@/lib/format";
 import { db } from "@/lib/db";
 
 type Props = { searchParams: Promise<{ category?: string; fit?: string }> };
@@ -24,7 +27,7 @@ export default async function Shop({ searchParams }: Props) {
   return (
     <section className="first">
       <div className="sec-head">
-        <div><p className="label">The Wachira wardrobe</p><h1>{custom ? "Made to measure" : cat ? cat.label : "The collection"}</h1><p className="collection-intro">{custom ? "Choose your piece. Follow the measurement guide. Make it yours." : "Tailored silhouettes, expressive colour, and a fit that feels like you."}</p></div>
+        <div><p className="label">The Wachira wardrobe</p><h1>{custom ? "Made to measure" : cat ? cat.label : "The collection"}</h1><p className="collection-intro">{custom ? "Choose your piece. Consult with us on WhatsApp. Make it yours." : "Tailored silhouettes, expressive colour, and a fit that feels like you."}</p></div>
         <nav className="chips" aria-label="Filter by category">
           <Link className="chip" href="/shop" aria-current={!cat && !custom ? "page" : undefined}>All</Link>
           {CATEGORIES.map((c) => (
@@ -35,6 +38,23 @@ export default async function Shop({ searchParams }: Props) {
           <Link className="chip" href="/shop?fit=custom" aria-current={custom ? "page" : undefined}>Made to measure</Link>
         </nav>
       </div>
+      <div className="catalog-fitting">
+        <div className="catalog-fitting-photo">
+          <Image src="/home/hero-fitting.jpg" alt="A tailor measuring a customer's shoulder for a navy suit" fill sizes="(max-width: 640px) 100vw, 40vw" style={{ objectFit: "cover", objectPosition: "center 30%" }} />
+        </div>
+        <div className="catalog-fitting-copy">
+          <p className="label">Made to your measurements</p>
+          <h2>Your style. Your fit.</h2>
+          <p>Choose an outfit below and consult with us on WhatsApp about your measurements. We tailor the piece to fit you.</p>
+          <p className="hint">Custom tailoring adds {ksh(CUSTOM_FEE)} per item. Ready in {CUSTOM_LEAD_TIME}, before delivery.</p>
+          {custom ? (
+            <a className="btn primary" href="#catalog-products">Choose your outfit ↓</a>
+          ) : (
+            <Link className="btn primary" href="/shop?fit=custom#catalog-products">Shop made to measure →</Link>
+          )}
+        </div>
+      </div>
+      <div id="catalog-products">
       {products.length === 0 ? (
         <p className="empty">No styles here yet. Check back soon.</p>
       ) : (
@@ -42,6 +62,8 @@ export default async function Shop({ searchParams }: Props) {
           {products.map((p) => <ProductCard key={p.id} product={p} />)}
         </div>
       )}
+      </div>
+      <StyleGallery products={products.map(({ slug, name, category, image, image2, price }) => ({ slug, name, category, image, image2, price }))} />
     </section>
   );
 }

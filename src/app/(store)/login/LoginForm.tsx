@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, ArrowRight, ShieldAlert } from "lucide-react";
 import { loginCustomerAction } from "../auth-actions";
 
 export default function LoginForm({
@@ -23,25 +24,32 @@ export default function LoginForm({
 
       {verified && (
         <div className="auth-alert-success" role="status">
-          ✓ Your email has been verified! You can now log in with your credentials.
+          <CheckCircle2 size={18} className="flex-shrink-0" />
+          <span>Your email has been verified! You can now log in with your credentials.</span>
         </div>
       )}
 
       {state?.error && (
-        <div className="err" role="alert">
-          {state.error}
+        <div className="auth-alert-error" role="alert">
+          <AlertCircle size={18} className="flex-shrink-0" />
+          <span>{state.error}</span>
         </div>
       )}
 
       {state?.needsVerification && state.email && (
         <div className="auth-alert-warn" role="alert">
-          <p>Your email has not been verified yet. A verification code has been sent to your inbox.</p>
+          <div className="flex items-center gap-2 font-medium">
+            <ShieldAlert size={18} />
+            <span>Verification required</span>
+          </div>
+          <p style={{ margin: "4px 0 10px", fontSize: "14px" }}>
+            Your email has not been verified yet. A verification code has been sent to your inbox.
+          </p>
           <Link
-            className="btn"
-            style={{ marginTop: 8 }}
+            className="btn primary sm"
             href={`/verify-email?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(next)}`}
           >
-            Enter verification code →
+            Enter verification code &rarr;
           </Link>
         </div>
       )}
@@ -79,13 +87,21 @@ export default function LoginForm({
             onClick={() => setShowPassword(!showPassword)}
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
       </label>
 
-      <button className="btn primary" type="submit" disabled={isPending}>
-        {isPending ? "Signing in…" : "Log in"}
+      <button className="btn primary lg" type="submit" disabled={isPending}>
+        {isPending ? (
+          <>
+            <Loader2 className="animate-spin" size={18} /> Signing in...
+          </>
+        ) : (
+          <>
+            Log in <ArrowRight size={16} />
+          </>
+        )}
       </button>
 
       <div className="auth-footer">

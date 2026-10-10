@@ -1,8 +1,10 @@
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { db } from "./db";
 import { isMockPayments, MpesaError, stkPush, stkQuery } from "./mpesa";
+import { queueOrderPaidEmails } from "./order-mail";
 
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
+const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const unpaid = ["PENDING_PAYMENT", "PAYMENT_FAILED"];
 
 export function newOrderNumber() {
   let s = "";
@@ -10,102 +12,117 @@ export function newOrderNumber() {
   return `WCH-${s}`;
 }
 
-export async function markPaid(orderId: string, receipt: string | null) {
-  const res = await db.order.updateMany({
-    where: { id: orderId, status: { in: ["PENDING_PAYMENT", "PAYMENT_FAILED"] } },
-    data: { status: "PAID", mpesaReceipt: receipt, paidAt: new Date(), paymentNote: null },
-  });
-  if (res.count) {
-    await db.orderEvent.create({
-      data: { orderId, status: "PAID", note: receipt ? `M-Pesa receipt ${receipt}` : "Payment confirmed" },
+export async function markPaid(orderId: string, receipt: string | null, requestId?: string) {
+  await db.$transaction(async (tx) => {
+    if (requestId) await tx.paymentAttempt.updateMany({ where: { requestId, orderId }, data: { status: "PAID", receipt } });
+    const res = await tx.order.updateMany({
+      where: { id: orderId, status: { in: unpaid } },
+      data: { status: "PAID", mpesaReceipt: receipt, paidAt: new Date(), paymentNote: null },
     });
-  }
-}
-
-export async function markFailed(orderId: string, note: string) {
-  const res = await db.order.updateMany({
-    where: { id: orderId, status: "PENDING_PAYMENT" },
-    data: { status: "PAYMENT_FAILED", paymentNote: note },
+    if (res.count) {
+      await tx.orderEvent.create({ data: { orderId, status: "PAID", note: receipt ? `M-Pesa receipt ${receipt}` : "Payment confirmed" } });
+      await queueOrderPaidEmails(tx, orderId);
+    } else if (receipt) {
+      await tx.order.updateMany({
+        where: { id: orderId, paidAt: { not: null }, OR: [{ mpesaReceipt: null }, { mpesaReceipt: { isSet: false } }] },
+        data: { mpesaReceipt: receipt },
+      });
+    }
   });
-  if (res.count) await db.orderEvent.create({ data: { orderId, status: "PAYMENT_FAILED", note } });
 }
 
+export async function markFailed(orderId: string, note: string, requestId: string) {
+  await db.$transaction(async (tx) => {
+    await tx.paymentAttempt.updateMany({ where: { requestId, orderId, status: { not: "PAID" } }, data: { status: "FAILED" } });
+    const res = await tx.order.updateMany({
+      where: { id: orderId, status: "PENDING_PAYMENT", checkoutRequestId: requestId },
+      data: { status: "PAYMENT_FAILED", paymentNote: note },
+    });
+    if (res.count) await tx.orderEvent.create({ data: { orderId, status: "PAYMENT_FAILED", note } });
+  });
+}
+
+export class PaymentBusyError extends Error {}
 type Payable = { id: string; number: string; total: number; mpesaPhone: string };
 
-/** Sends the M-Pesa prompt (STK push) to the customer's phone. */
+/** Claim a prompt before contacting Daraja. Never overwrite a confirmed payment. */
 export async function requestPayment(order: Payable) {
   const now = new Date();
-  if (isMockPayments()) {
-    await db.order.update({
-      where: { id: order.id },
-      data: {
-        status: "PENDING_PAYMENT",
-        checkoutRequestId: `mock-${order.number}-${now.getTime()}`,
-        paymentNote: null,
-        paymentRequestedAt: now,
-        paymentCheckedAt: now,
+  const placeholder = `sending-${randomBytes(16).toString("hex")}`;
+  const mock = isMockPayments();
+  await db.$transaction(async (tx) => {
+    const previous = await tx.order.findUnique({ where: { id: order.id } });
+    const claim = await tx.order.updateMany({
+      where: {
+        id: order.id, status: { in: unpaid },
+        OR: [{ paymentRequestedAt: null }, { paymentRequestedAt: { isSet: false } }, { paymentRequestedAt: { lt: new Date(now.getTime() - 60_000) } }],
       },
+      data: { checkoutRequestId: placeholder, status: "PENDING_PAYMENT", mpesaPhone: order.mpesaPhone, paymentNote: null, paymentRequestedAt: now, paymentCheckedAt: now },
     });
-    return;
-  }
+    if (!claim.count) throw new PaymentBusyError("A prompt was sent recently or this order can no longer be paid. Refresh and try again in a minute.");
+    // Retain references from orders created before PaymentAttempt was introduced.
+    if (previous?.checkoutRequestId && !previous.checkoutRequestId.startsWith("sending-")) {
+      await tx.paymentAttempt.upsert({
+        where: { requestId: previous.checkoutRequestId }, update: {},
+        create: { requestId: previous.checkoutRequestId, orderId: order.id, amount: previous.total, phone: previous.mpesaPhone },
+      });
+    }
+    await tx.paymentAttempt.create({ data: { requestId: placeholder, orderId: order.id, amount: order.total, phone: order.mpesaPhone } });
+  });
 
+  let requestId: string;
   try {
-    const { checkoutRequestId } = await stkPush({
-      phone: order.mpesaPhone,
-      amount: order.total,
-      reference: order.number,
-      description: "Wachira order",
-    });
-    await db.order.update({
-      where: { id: order.id },
-      data: {
-        status: "PENDING_PAYMENT",
-        checkoutRequestId,
-        paymentNote: null,
-        paymentRequestedAt: now,
-        paymentCheckedAt: now,
-      },
-    });
+    requestId = mock ? `mock-${randomBytes(16).toString("hex")}` : (await stkPush({
+      phone: order.mpesaPhone, amount: order.total, reference: order.number, description: "Wachira order",
+    })).checkoutRequestId;
   } catch (e) {
     console.error("STK push failed", order.number, e);
-    const note = "We couldn't send the M-Pesa prompt. Check the number and try again.";
-    await db.order.update({
-      where: { id: order.id },
-      data: { status: "PAYMENT_FAILED", paymentNote: note, paymentRequestedAt: now },
-    });
-    await db.orderEvent.create({
-      data: {
-        orderId: order.id,
-        status: "PAYMENT_FAILED",
-        note: e instanceof MpesaError ? e.message : "M-Pesa could not be reached.",
-      },
-    });
-  }
-}
-
-type Pending = {
-  id: string;
-  status: string;
-  checkoutRequestId: string | null;
-  paymentCheckedAt: Date | null;
-};
-
-/**
- * Backup for the M-Pesa callback: while the customer waits, ask Daraja
- * for the result at most every 15 seconds.
- */
-export async function refreshPayment(order: Pending) {
-  if (order.status !== "PENDING_PAYMENT" || !order.checkoutRequestId) return;
-  const last = order.paymentCheckedAt?.getTime() ?? 0;
-
-  if (order.checkoutRequestId.startsWith("mock-")) {
-    if (Date.now() - last > 4000) await markPaid(order.id, `MOCK${randomInt(100000, 999999)}`);
+    await markFailed(order.id, e instanceof MpesaError ? e.message : "We couldn't send the M-Pesa prompt. Please try again.", placeholder);
     return;
   }
+  // A database failure after a successful prompt is not a failed payment.
+  await db.$transaction(async (tx) => {
+    await tx.paymentAttempt.update({ where: { requestId: placeholder }, data: { requestId } });
+    await tx.order.updateMany({
+      where: { id: order.id, checkoutRequestId: placeholder, status: { in: unpaid } },
+      data: { checkoutRequestId: requestId },
+    });
+  });
+}
 
-  if (Date.now() - last < 15_000) return;
-  await db.order.update({ where: { id: order.id }, data: { paymentCheckedAt: new Date() } });
-  const result = await stkQuery(order.checkoutRequestId).catch(() => null);
-  if (result?.state === "paid") await markPaid(order.id, null); // receipt number arrives with the callback
-  else if (result?.state === "failed") await markFailed(order.id, result.message);
+export async function findPaymentOrder(requestId: string) {
+  const attempt = await db.paymentAttempt.findUnique({ where: { requestId } });
+  return attempt ? db.order.findUnique({ where: { id: attempt.orderId } }) : db.order.findUnique({ where: { checkoutRequestId: requestId } });
+}
+
+type Pending = { id: string; status: string; checkoutRequestId: string | null; paymentCheckedAt: Date | null };
+
+export async function refreshPayment(order: Pending) {
+  if (!unpaid.includes(order.status)) return;
+  const attempts = await db.paymentAttempt.findMany({ where: { orderId: order.id, status: "PENDING" } });
+  if (order.checkoutRequestId && !attempts.some((a) => a.requestId === order.checkoutRequestId)) {
+    const legacy = await db.order.findUnique({ where: { id: order.id } });
+    if (legacy && !order.checkoutRequestId.startsWith("sending-")) {
+      const attempt = await db.paymentAttempt.upsert({
+        where: { requestId: order.checkoutRequestId }, update: {},
+        create: { orderId: order.id, requestId: order.checkoutRequestId, amount: legacy.total, phone: legacy.mpesaPhone, checkedAt: order.paymentCheckedAt ?? new Date(0) },
+      });
+      if (attempt.status === "PENDING") attempts.push(attempt);
+    }
+  }
+  for (const attempt of attempts) {
+    if (attempt.requestId.startsWith("sending-")) continue;
+    if (attempt.requestId.startsWith("mock-")) {
+      if (isMockPayments() && Date.now() - attempt.createdAt.getTime() > 4000) await markPaid(order.id, `MOCK${randomInt(100000, 999999)}`, attempt.requestId);
+      continue;
+    }
+    const claim = await db.paymentAttempt.updateMany({
+      where: { id: attempt.id, status: "PENDING", checkedAt: { lt: new Date(Date.now() - 15_000) } },
+      data: { checkedAt: new Date() },
+    });
+    if (!claim.count) continue;
+    const result = await stkQuery(attempt.requestId).catch(() => null);
+    if (result?.state === "paid") await markPaid(order.id, null, attempt.requestId);
+    else if (result?.state === "failed") await markFailed(order.id, result.message, attempt.requestId);
+  }
 }

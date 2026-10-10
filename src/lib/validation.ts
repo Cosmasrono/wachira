@@ -25,12 +25,9 @@ export const orderInput = z
     items: z.array(orderItemInput).min(1, "Your bag is empty.").max(30),
   })
   .superRefine((v, ctx) => {
-    if (v.deliveryMethod !== "PICKUP" && (!v.county || !v.area)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["area"],
-        message: "Enter your county/town and estate so we can deliver.",
-      });
+    if (v.deliveryMethod !== "PICKUP") {
+      if (!v.county) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["county"], message: "Enter your county or town." });
+      if (!v.area) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["area"], message: "Enter your estate or area so we can deliver." });
     }
   });
 
@@ -44,7 +41,7 @@ export const productInput = z.object({
   slug: z.string().trim().max(80).default(""),
   category: z.enum(categorySlugs),
   description: z.string().trim().min(5, "Add a short description.").max(1000),
-  price: z.coerce.number().int("Price must be whole shillings.").min(1, "Enter a price."),
+  price: z.coerce.number().int("Price must be whole shillings.").min(0, "Price cannot be negative."),
   sizes: z.string().trim().min(1, "Add at least one size."),
   measureFields: z.string().trim().default(""),
   allowCustom: z.boolean(),

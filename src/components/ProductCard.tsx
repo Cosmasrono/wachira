@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConsultLink from "./ConsultLink";
 import type { Product } from "@/lib/db";
 import ProductImage from "./ProductImage";
 import { ksh, splitList } from "@/lib/format";
@@ -6,9 +7,9 @@ import { ksh, splitList } from "@/lib/format";
 export default function ProductCard({ product: p }: { product: Product }) {
   return (
     <article className="card">
-      <Link href={`/products/${p.slug}`} className="media" aria-label={p.name}>
-        <ProductImage src={p.image} alt={p.name} className="front" />
-        {p.image2 && <ProductImage src={p.image2} alt="" className="back" placeholder={false} />}
+      <Link href={`/products/${p.slug}`} className="media" aria-label={`View ${p.name}`}>
+        <ProductImage src={p.image} alt={p.name} className="front" fit="contain" />
+        {p.image2 && <ProductImage src={p.image2} alt="" className="back" fit="contain" placeholder={false} />}
         {p.badge && <span className="badge">{p.badge}</span>}
       </Link>
       <h3>
@@ -20,8 +21,9 @@ export default function ProductCard({ product: p }: { product: Product }) {
             <span key={c} className="sw" style={{ background: c }} />
           ))}
         </span>
-        <span className="price">{ksh(p.price)}</span>
+        <span className="price">{p.price > 0 ? ksh(p.price) : "Price on consultation"}</span>
       </div>
+      <ConsultLink name={p.name} slug={p.slug} className="more">Consult on WhatsApp ↗</ConsultLink>
       {p.allowCustom && splitList(p.measureFields).length > 0 && (
         <span className="hint">Standard sizes or made to measure</span>
       )}

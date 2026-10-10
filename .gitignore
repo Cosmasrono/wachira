@@ -1,4 +1,6 @@
 node_modules
+uploads/
+prisma/client/
 .next
 .next-dev
 out

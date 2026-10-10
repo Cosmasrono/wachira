@@ -10,6 +10,7 @@ export default async function CheckoutPage() {
   return (
     <section className="first">
       <div className="sec-head"><h1>Checkout</h1></div>
+      <p className="checkout-intro">Just your details, a delivery option, and an M-Pesa confirmation. Your total is shown before you pay.</p>
       <p className="hint">Ordering as {customer.email}.</p>
       <CheckoutForm defaultName={customer.name ?? ""} />
     </section>

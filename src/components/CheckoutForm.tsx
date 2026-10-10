@@ -2,25 +2,37 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCart } from "./CartProvider";
 import ProductImage from "./ProductImage";
 import { DELIVERY, DELIVERY_METHODS, deliveryFee, FREE_NAIROBI_OVER, type DeliveryMethod } from "@/lib/config";
 import { ksh } from "@/lib/format";
+import { orderInput } from "@/lib/validation";
 
 export default function CheckoutForm({ defaultName = "" }: { defaultName?: string }) {
   const router = useRouter();
-  const { lines, loaded, subtotal, clear } = useCart();
+  const { lines, loaded, subtotal, clear, setOpen } = useCart();
 
   const [form, setForm] = useState({
-    customerName: defaultName, phone: "", county: "", area: "", notes: "", mpesaPhone: "",
+    customerName: defaultName, phone: "", county: "Nairobi", area: "", notes: "", mpesaPhone: "",
   });
   const [method, setMethod] = useState<DeliveryMethod>("NAIROBI");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [differentPhone, setDifferentPhone] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const submitting = useRef(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  const inputFeedback = (field: string) => ({
+    "aria-invalid": !!fieldErrors[field],
+    "aria-describedby": fieldErrors[field] ? `${field}-error` : undefined,
+  });
+  const feedback = (field: string) => fieldErrors[field]
+    ? <span className="err" id={`${field}-error`}>{fieldErrors[field]}</span> : null;
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+    { setForm((f) => ({ ...f, [k]: e.target.value })); setFieldErrors((errors) => ({ ...errors, [k]: "" })); };
 
   const fee = deliveryFee(method, subtotal);
   const total = subtotal + fee;
@@ -37,24 +49,34 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
     setError("");
+    const payload = {
+      ...form,
+      mpesaPhone: differentPhone ? form.mpesaPhone : form.phone,
+      deliveryMethod: method,
+      items: lines.map((l) => ({ productId: l.productId, qty: l.qty,
+        size: l.measurements ? undefined : l.size, measurements: l.measurements, fitNote: l.fitNote })),
+    };
+    const result = orderInput.safeParse(payload);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of result.error.issues) errors[String(issue.path[0])] ??= issue.message;
+      setFieldErrors(errors);
+      const firstField = Object.keys(errors)[0];
+      const input = document.getElementById(firstField);
+      if (input) input.focus();
+      else setError(Object.values(errors)[0]);
+      return;
+    }
+    setFieldErrors({});
+    submitting.current = true;
     setBusy(true);
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          mpesaPhone: form.mpesaPhone || form.phone,
-          deliveryMethod: method,
-          items: lines.map((l) => ({
-            productId: l.productId,
-            qty: l.qty,
-            size: l.measurements ? undefined : l.size,
-            measurements: l.measurements,
-            fitNote: l.fitNote,
-          })),
-        }),
+        body: JSON.stringify(result.data),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
@@ -65,6 +87,8 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
       if (!res.ok) {
         setError(data.error ?? "We couldn't place your order. Please try again.");
         setBusy(false);
+        submitting.current = false;
+        requestAnimationFrame(() => errorRef.current?.focus());
         return;
       }
       clear();
@@ -72,28 +96,35 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
     } catch {
       setError("You seem to be offline. Check your connection and try again.");
       setBusy(false);
+      submitting.current = false;
+      requestAnimationFrame(() => errorRef.current?.focus());
     }
   }
 
   return (
-    <form className="checkout-page" onSubmit={submit} noValidate>
+    <form className="checkout-page" onSubmit={submit} noValidate aria-busy={busy}>
       <div className="checkout-fields">
-        <fieldset>
-          <legend>Your details</legend>
+        <fieldset disabled={busy}>
+          <legend>1. Your details</legend>
           <label htmlFor="customerName">Full name
-            <input id="customerName" autoComplete="name" value={form.customerName} onChange={set("customerName")} placeholder="Wanjiku Kamau" />
+            <input id="customerName" required maxLength={80} {...inputFeedback("customerName")} autoComplete="name" value={form.customerName} onChange={set("customerName")} placeholder="Wanjiku Kamau" />
+            {feedback("customerName")}
           </label>
           <label htmlFor="phone">Phone (for delivery and WhatsApp)
-            <input id="phone" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="0712 345 678" />
+            <input id="phone" required type="tel" {...inputFeedback("phone")} autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="0712 345 678" />
+            {feedback("phone")}
           </label>
         </fieldset>
 
-        <fieldset>
-          <legend>Delivery</legend>
+        <fieldset disabled={busy}>
+          <legend>2. Delivery or pickup</legend>
           <div className="options">
             {DELIVERY_METHODS.map((m) => (
               <label key={m} className="option">
-                <input type="radio" name="delivery" checked={method === m} onChange={() => setMethod(m)} />
+                <input type="radio" name="delivery" checked={method === m} onChange={() => {
+                  setMethod(m); setFieldErrors({});
+                  setForm((f) => ({ ...f, county: m === "NAIROBI" ? "Nairobi" : f.county === "Nairobi" ? "" : f.county }));
+                }} />
                 <span>{DELIVERY[m].label}</span>
                 <span className="price">
                   {deliveryFee(m, subtotal) === 0 ? "Free" : ksh(DELIVERY[m].fee)}
@@ -102,34 +133,40 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
             ))}
           </div>
           {method === "NAIROBI" && subtotal < FREE_NAIROBI_OVER && (
-            <p className="hint">Free Nairobi delivery on orders over {ksh(FREE_NAIROBI_OVER)}.</p>
+            <p className="hint">Add {ksh(FREE_NAIROBI_OVER - subtotal)} more for free Nairobi delivery.</p>
           )}
           {method !== "PICKUP" && (
             <div className="two">
               <label htmlFor="county">County / town
-                <input id="county" value={form.county} onChange={set("county")} placeholder={method === "NAIROBI" ? "Nairobi" : "Nakuru"} />
+                <input id="county" required maxLength={60} autoComplete="address-level1" {...inputFeedback("county")} value={form.county} onChange={set("county")} placeholder={method === "NAIROBI" ? "Nairobi" : "Nakuru"} />
+                {feedback("county")}
               </label>
               <label htmlFor="area">Estate / area
-                <input id="area" value={form.area} onChange={set("area")} placeholder="Kilimani" />
+                <input id="area" required maxLength={120} autoComplete="address-level2" {...inputFeedback("area")} value={form.area} onChange={set("area")} placeholder="Kilimani" />
+                {feedback("area")}
               </label>
             </div>
           )}
           <label htmlFor="notes">Directions or notes (optional)
-            <textarea id="notes" rows={2} value={form.notes} onChange={set("notes")} placeholder="Gate B, call on arrival" />
+            <textarea id="notes" rows={2} maxLength={300} value={form.notes} onChange={set("notes")} placeholder="Gate B, call on arrival" />
           </label>
         </fieldset>
 
-        <fieldset>
-          <legend>Pay with M-Pesa</legend>
-          <label htmlFor="mpesaPhone">M-Pesa number (leave empty to use the phone above)
-            <input id="mpesaPhone" inputMode="tel" value={form.mpesaPhone} onChange={set("mpesaPhone")} placeholder={form.phone || "0712 345 678"} />
-          </label>
-          <p className="hint">You&apos;ll get a prompt on your phone. Enter your M-Pesa PIN to confirm the order.</p>
+        <fieldset disabled={busy}>
+          <legend>3. Pay with M-Pesa</legend>
+          <p className="hint">{differentPhone ? "Enter the number you want to pay from." : form.phone ? `We will send the payment prompt to ${form.phone}.` : "We will use the phone number you enter above."}</p>
+          <label className="payment-phone-toggle"><input type="checkbox" checked={differentPhone} onChange={(e) => { setDifferentPhone(e.target.checked); setFieldErrors((errors) => ({ ...errors, mpesaPhone: "" })); }} />Pay from a different number</label>
+          {differentPhone && <label htmlFor="mpesaPhone">M-Pesa number
+            <input id="mpesaPhone" required type="tel" {...inputFeedback("mpesaPhone")} value={form.mpesaPhone} onChange={set("mpesaPhone")} placeholder="0712 345 678" />
+            {feedback("mpesaPhone")}
+          </label>}
+          <p className="hint">Enter your PIN only on the M-Pesa prompt on your phone. You can track your order after payment.</p>
         </fieldset>
       </div>
 
       <aside className="summary">
         <h2>Order summary</h2>
+        <button className="linkish edit-bag" type="button" disabled={busy} onClick={() => setOpen(true)}>Edit your bag</button>
         {lines.map((l) => (
           <div className="line" key={l.key}>
             <div className="thumb"><ProductImage src={l.image} alt={l.name} sizes="64px" /></div>
@@ -143,7 +180,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
         <div className="row"><span>Subtotal</span><span className="price">{ksh(subtotal)}</span></div>
         <div className="row"><span>Delivery</span><span className="price">{fee === 0 ? "Free" : ksh(fee)}</span></div>
         <div className="row total"><span>Total</span><span className="price">{ksh(total)}</span></div>
-        <p className="err" role="alert">{error}</p>
+        <p className="err" role="alert" ref={errorRef} tabIndex={-1}>{error}</p>
         <button className="mpesa" type="submit" disabled={busy}>
           {busy ? "Sending M-Pesa prompt…" : `Pay ${ksh(total)} with M-Pesa`}
         </button>

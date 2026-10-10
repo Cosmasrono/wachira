@@ -11,11 +11,12 @@ type Props = {
   className?: string;
   /** false: render nothing instead of a placeholder (used for hover photos). */
   placeholder?: boolean;
+  fit?: "cover" | "contain";
 };
 
 /** Product photo that falls back to a patterned placeholder until the real image is added. */
 export default function ProductImage({
-  src, alt, sizes = "(max-width: 900px) 50vw, 25vw", priority, className, placeholder = true,
+  src, alt, sizes = "(max-width: 900px) 50vw, 25vw", priority, className, placeholder = true, fit = "cover",
 }: Props) {
   const [failed, setFailed] = useState(false);
 
@@ -36,7 +37,7 @@ export default function ProductImage({
       sizes={sizes}
       priority={priority}
       className={className}
-      style={{ objectFit: "cover" }}
+      style={{ objectFit: fit }}
       onError={() => setFailed(true)}
     />
   );

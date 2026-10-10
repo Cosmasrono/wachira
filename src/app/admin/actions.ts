@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { db, Prisma } from "@/lib/db";
 import { slugify } from "@/lib/format";
@@ -10,6 +11,7 @@ import { checkLoginCode, sendLoginCode } from "@/lib/login-code";
 import { isStatus, nextActions } from "@/lib/order-status";
 import { ADMIN_COOKIE, SESSION_DAYS, createSession, isAdminEmail, sessionsConfigured } from "@/lib/session";
 import { productInput } from "@/lib/validation";
+import { processOrderMailJobs, queueOrderPaidEmails } from "@/lib/order-mail";
 
 export type FormState = { error: string };
 
@@ -51,16 +53,21 @@ export async function updateOrderStatus(formData: FormData) {
   const order = await db.order.findUnique({ where: { id } });
   if (!order || !isStatus(status) || !nextActions(order).includes(status)) return;
 
-  await db.order.update({
-    where: { id },
-    data: {
-      status,
-      ...(status === "PAID" && !order.paidAt ? { paidAt: new Date(), paymentNote: null } : {}),
-    },
+  await db.$transaction(async (tx) => {
+    const changed = await tx.order.updateMany({
+      where: { id, status: order.status },
+      data: {
+        status,
+        ...(status === "PAID" && !order.paidAt ? { paidAt: new Date(), paymentNote: null } : {}),
+      },
+    });
+    if (!changed.count) return;
+    await tx.orderEvent.create({
+      data: { orderId: id, status, note: note || (status === "PAID" ? "Payment confirmed by admin" : "") },
+    });
+    if (status === "PAID") await queueOrderPaidEmails(tx, id);
   });
-  await db.orderEvent.create({
-    data: { orderId: id, status, note: note || (status === "PAID" ? "Payment confirmed by admin" : "") },
-  });
+  if (status === "PAID") after(() => processOrderMailJobs(id));
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${id}`);
 }

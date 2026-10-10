@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { signupCustomerAction, type AuthState } from "../auth-actions";
+import { AlertCircle, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { signupCustomerAction } from "../auth-actions";
 
 export default function SignupForm({ next }: { next: string }) {
   const [state, formAction, isPending] = useActionState(signupCustomerAction, {});
@@ -13,9 +14,15 @@ export default function SignupForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
 
       {state?.error && (
-        <div className="err" role="alert">
-          {state.error}
+        <div className="auth-alert-error" role="alert">
+          <AlertCircle size={18} className="flex-shrink-0" />
+          <span>{state.error}</span>
         </div>
+      )}
+      {state?.needsVerification && state.email && (
+        <Link href={`/verify-email?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(state.next ?? next)}`}>
+          Continue email verification
+        </Link>
       )}
 
       <label htmlFor="name">
@@ -53,7 +60,7 @@ export default function SignupForm({ next }: { next: string }) {
             type={showPassword ? "text" : "password"}
             autoComplete="new-password"
             required
-            placeholder="At least 6 characters"
+            placeholder="At least 12 characters"
             disabled={isPending}
           />
           <button
@@ -62,7 +69,7 @@ export default function SignupForm({ next }: { next: string }) {
             onClick={() => setShowPassword(!showPassword)}
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
       </label>
@@ -82,8 +89,16 @@ export default function SignupForm({ next }: { next: string }) {
         </div>
       </label>
 
-      <button className="btn primary" type="submit" disabled={isPending}>
-        {isPending ? "Creating account & sending code…" : "Sign up"}
+      <button className="btn primary lg" type="submit" disabled={isPending}>
+        {isPending ? (
+          <>
+            <Loader2 className="animate-spin" size={18} /> Creating account &amp; sending code...
+          </>
+        ) : (
+          <>
+            Create account <ArrowRight size={16} />
+          </>
+        )}
       </button>
 
       <div className="auth-footer">

@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth";
 import { safeNext } from "@/lib/customer";
 import { db } from "@/lib/db";
+import { allowAuthRequest } from "@/lib/auth-throttle";
 import {
   CUSTOMER_COOKIE,
   CUSTOMER_SESSION_DAYS,
@@ -51,6 +52,7 @@ export async function signupCustomerAction(
   }
 
   const { name, email, password } = parsed.data;
+  if (!await allowAuthRequest("signup", email, 5)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
   // Check if an account already exists with this email
   const existingUser = await db.user.findUnique({ where: { email } });
@@ -61,21 +63,19 @@ export async function signupCustomerAction(
     };
   }
 
-  const passwordHash = hashPassword(password);
-
   if (existingUser && !existingUser.emailVerified) {
-    // Update unverified user details
-    await db.user.update({
-      where: { email },
-      data: { name, passwordHash },
-    });
+    // Never replace credentials without proving ownership of the existing account.
+    return {
+      error: "Registration is already pending for this email. Verify your email, then log in with your original password.",
+      needsVerification: true, email, next,
+    };
   } else {
     // Create new unverified user
     await db.user.create({
       data: {
         name,
         email,
-        passwordHash,
+        passwordHash: await hashPassword(password),
         emailVerified: false,
       },
     });
@@ -155,9 +155,10 @@ export async function loginCustomerAction(
   }
 
   const { email, password } = parsed.data;
+  if (!await allowAuthRequest("password-login", email)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
   const user = await db.user.findUnique({ where: { email } });
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !await verifyPassword(password, user.passwordHash)) {
     return { error: "Invalid email or password. Please try again." };
   }
 

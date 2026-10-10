@@ -55,7 +55,11 @@ export default function AddToBag({ product }: Props) {
   function submit() {
     setError("");
     if (fit === "std") {
-      if (!size) return setError("Choose a size to add this to your bag.");
+      if (!size) {
+        setError("Choose your size below to continue.");
+        document.getElementById(`size-${product.id}-0`)?.focus();
+        return;
+      }
       add({ ...base, unitPrice: product.price, size });
       return;
     }
@@ -74,11 +78,12 @@ export default function AddToBag({ product }: Props) {
       <div className="purchase-price"><span className="price big">{ksh(price)}</span><span className="hint">{fit === "custom" ? `Includes ${ksh(CUSTOM_FEE)} custom tailoring` : "Delivery calculated at checkout"}</span></div>
       {canCustom && <div className="fit" role="group" aria-label="Choose your fit">
         <button type="button" aria-pressed={fit === "std"} onClick={() => { setFit("std"); setError(""); }}>Standard size</button>
-        <button type="button" aria-pressed={fit === "custom"} onClick={() => { setFit("custom"); setError(""); }}>Made for me</button>
+        <button type="button" aria-pressed={fit === "custom"} onClick={() => { setFit("custom"); setError(""); }}>Made to measure · +{ksh(CUSTOM_FEE)}</button>
       </div>}
       {fit === "std" ? <div>
         <p className="label">Choose your size</p>
-        <div className="sizes" role="group" aria-label="Choose a size">{product.sizes.map((s) => <button key={s} type="button" className="size" aria-pressed={size === s} onClick={() => { setSize(s); setError(""); }}>{s}</button>)}</div>
+        <div className="sizes" role="group" aria-label="Choose a size" aria-describedby={`size-feedback-${product.id}`}>{product.sizes.map((s, i) => <button id={`size-${product.id}-${i}`} key={s} type="button" className="size" aria-pressed={size === s} onClick={() => { setSize(s); setError(""); }}>{s}</button>)}</div>
+        <p className="hint selection-feedback" id={`size-feedback-${product.id}`} role="status">{size ? `Selected size: ${size}` : "Select your usual size to get started."}</p>
         <details className="detail-panel"><summary>Need help choosing a size?</summary><p className="hint">Fit can vary by style. Share your usual size and body measurements with us using the product enquiry below so we can help you choose.{canCustom ? " Or select Made for me for a garment tailored to your measurements." : ""}</p></details>
       </div> : <div className="custom-flow">
         <ol className="fit-steps" aria-label="Custom fit progress"><li aria-current={step === "measure" ? "step" : undefined}>01 Measure</li><li aria-current={step === "review" ? "step" : undefined}>02 Review</li></ol>

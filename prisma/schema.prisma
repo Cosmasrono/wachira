@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "./client"
+  output   = "../node_modules/.prisma/wachira-client"
 }
 
 
@@ -111,4 +111,40 @@ model User {
   emailVerified Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Every prompt keeps its own reference, including prompts superseded by retries.
+model PaymentAttempt {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  requestId String   @unique
+  amount    Int
+  phone     String
+  status    String   @default("PENDING")
+  receipt   String?
+  createdAt DateTime @default(now())
+  checkedAt DateTime @default(now())
+
+  @@index([orderId, status])
+}
+
+// One durable email per recipient. Sending can be retried independently of payment.
+model OrderMailJob {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  key         String   @unique
+  orderId     String   @db.ObjectId
+  recipient   String
+  kind        String
+  attempts    Int      @default(0)
+  availableAt DateTime @default(now())
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([sentAt, availableAt])
+}
+
+model AuthLimit {
+  id        String   @id @map("_id")
+  count     Int      @default(0)
+  expiresAt DateTime
 }

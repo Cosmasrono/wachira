@@ -13,9 +13,13 @@ const baseUrl = () =>
  * It's on when MPESA_MODE=mock, or in development when no keys are set.
  * It is never switched on automatically in production.
  */
-export const isMockPayments = () =>
-  process.env.MPESA_MODE === "mock" ||
-  (!process.env.MPESA_CONSUMER_KEY && process.env.NODE_ENV !== "production");
+export const isMockPayments = () => {
+  if (process.env.NODE_ENV === "production" && process.env.MPESA_MODE === "mock") {
+    throw new MpesaError("Mock payments are disabled in production.");
+  }
+  return process.env.NODE_ENV !== "production" &&
+    (process.env.MPESA_MODE === "mock" || !process.env.MPESA_CONSUMER_KEY);
+};
 
 let cachedToken: { value: string; expires: number } | null = null;
 
@@ -29,6 +33,7 @@ async function accessToken() {
   const res = await fetch(`${baseUrl()}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${auth}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new MpesaError(`M-Pesa login failed (${res.status}).`);
   const data = (await res.json()) as { access_token: string; expires_in: string };
@@ -62,6 +67,7 @@ async function post(path: string, body: object) {
     headers: { Authorization: `Bearer ${await accessToken()}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, data: data as Record<string, string | undefined> };

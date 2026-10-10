@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
+import { currentCustomer, ownsOrder } from "@/lib/customer";
 import { db } from "@/lib/db";
 import { normalizePhone } from "@/lib/format";
-import { requestPayment } from "@/lib/orders";
+import { PaymentBusyError, requestPayment } from "@/lib/orders";
 
 /** Sends the M-Pesa prompt again, e.g. after a timeout or a cancelled prompt. */
 export async function POST(req: Request, { params }: { params: Promise<{ number: string }> }) {
   const { number } = await params;
+  const customer = await currentCustomer();
+  if (!customer) return NextResponse.json({ error: "Please sign in to pay for this order." }, { status: 401 });
+
   const body = (await req.json().catch(() => ({}))) as { phone?: string };
   const phone = normalizePhone(String(body.phone ?? ""));
   if (!phone) {
@@ -13,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ number:
   }
 
   const order = await db.order.findUnique({ where: { number } });
-  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!order || !ownsOrder(customer, order)) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   const lastRequest = order.paymentRequestedAt?.getTime() ?? 0;
   const canRetry =
@@ -26,7 +30,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ number:
     );
   }
 
-  const updated = await db.order.update({ where: { id: order.id }, data: { mpesaPhone: phone } });
-  await requestPayment(updated);
+  try {
+    await requestPayment({ ...order, mpesaPhone: phone });
+  } catch (error) {
+    if (error instanceof PaymentBusyError) return NextResponse.json({ error: error.message }, { status: 409 });
+    throw error;
+  }
   return NextResponse.json({ ok: true });
 }

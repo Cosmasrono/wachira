@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCart } from "./CartProvider";
 import ProductImage from "./ProductImage";
 import { CUSTOM_LEAD_TIME } from "@/lib/config";
@@ -9,26 +9,39 @@ import { ksh } from "@/lib/format";
 
 export default function CartDrawer() {
   const { lines, open, setOpen, setQty, subtotal } = useCart();
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [open]);
 
   return (
     <>
-      {open && <div className="scrim" onClick={() => setOpen(false)} />}
-      <aside className={`drawer${open ? " open" : ""}`} aria-label="Shopping bag" aria-hidden={!open}>
+      <dialog ref={dialogRef} className="drawer" aria-labelledby="bag-title"
+        onCancel={(event) => { event.preventDefault(); setOpen(false); }}
+        onClick={(event) => {
+          if (event.target !== event.currentTarget) return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false);
+        }}>
         <header>
-          <h3>Your bag</h3>
-          <button className="close" onClick={() => setOpen(false)} aria-label="Close bag">✕</button>
+          <h3 id="bag-title">Your bag</h3>
+          <button className="close" autoFocus onClick={() => setOpen(false)} aria-label="Close bag">✕</button>
         </header>
 
         <div className="lines">
           {lines.length === 0 && (
-            <p className="empty">Your bag is empty. Pick a style, then a size or your measurements.</p>
+            <div className="empty"><p>Your bag is empty. Let&apos;s find your next outfit.</p><Link href="/shop" className="btn primary" onClick={() => setOpen(false)}>Browse outfits</Link></div>
           )}
           {lines.map((l) => (
             <div className="line" key={l.key}>
@@ -53,9 +66,9 @@ export default function CartDrawer() {
                 </small>
               </div>
               <div className="qty">
-                <button onClick={() => setQty(l.key, l.qty - 1)} aria-label="Remove one">−</button>
+                <button onClick={() => setQty(l.key, l.qty - 1)} aria-label={`Remove one ${l.name}`}>−</button>
                 {l.qty}
-                <button onClick={() => setQty(l.key, l.qty + 1)} aria-label="Add one">+</button>
+                <button onClick={() => setQty(l.key, l.qty + 1)} disabled={l.qty >= 20} aria-label={`Add one ${l.name}`}>+</button>
               </div>
             </div>
           ))}
@@ -66,7 +79,7 @@ export default function CartDrawer() {
             <span>Subtotal</span>
             <span className="price">{ksh(subtotal)}</span>
           </div>
-          <p className="hint">Delivery is added at checkout.</p>
+          <p className="hint">Choose delivery or free pickup at checkout. Sign in to place your order; your bag stays saved.</p>
           {lines.length > 0 ? (
             <Link href="/checkout" className="mpesa" onClick={() => setOpen(false)}>
               Checkout
@@ -74,8 +87,9 @@ export default function CartDrawer() {
           ) : (
             <button className="mpesa" disabled>Checkout</button>
           )}
+          <button className="linkish" type="button" onClick={() => setOpen(false)}>Continue shopping</button>
         </div>
-      </aside>
+      </dialog>
     </>
   );
 }

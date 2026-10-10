@@ -12,6 +12,10 @@ function mailer() {
     port: Number(process.env.MAIL_PORT ?? 587),
     // "ssl" means TLS from the start (port 465); "tls" upgrades the connection (port 587).
     secure: process.env.MAIL_ENCRYPTION === "ssl",
+    requireTLS: process.env.MAIL_ENCRYPTION === "tls",
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
     auth: { user: process.env.MAIL_USERNAME, pass: process.env.MAIL_PASSWORD },
   });
   return transport;

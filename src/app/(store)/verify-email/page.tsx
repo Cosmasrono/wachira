@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentCustomer, safeNext } from "@/lib/customer";
+import { ShieldCheck } from "lucide-react";
 import VerifyEmailForm from "./VerifyEmailForm";
 
 export const metadata: Metadata = {
@@ -30,7 +31,11 @@ export default async function VerifyEmailPage({
     <section className="first auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <p className="label">Step 2 of 2 · Account activation</p>
+          <div className="auth-badge-row">
+            <span className="auth-step-pill">
+              <ShieldCheck size={14} /> Step 2 of 2 &middot; Verification
+            </span>
+          </div>
           <h1>Verify your email</h1>
           <p className="lead">
             We sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to activate your account.

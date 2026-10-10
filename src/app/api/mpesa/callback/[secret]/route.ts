@@ -1,15 +1,8 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { after, NextResponse } from "next/server";
 import { friendlyResult } from "@/lib/mpesa";
-import { markFailed, markPaid } from "@/lib/orders";
-
-type CallbackItem = { Name: string; Value?: string | number };
-type StkCallback = {
-  CheckoutRequestID?: string;
-  ResultCode?: number | string;
-  ResultDesc?: string;
-  CallbackMetadata?: { Item?: CallbackItem[] };
-};
+import { findPaymentOrder, markFailed, markPaid } from "@/lib/orders";
+import { callbackSchema, paidMetadata } from "@/lib/payment-callback";
+import { processOrderMailJobs } from "@/lib/order-mail";
 
 /**
  * Safaricom posts the STK push result here. The secret in the URL stops
@@ -23,34 +16,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ secret:
 
   const accepted = NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
   const body = await req.json().catch(() => null);
-  const cb: StkCallback | undefined = body?.Body?.stkCallback;
-  if (!cb?.CheckoutRequestID) return accepted;
+  const parsed = callbackSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ ResultCode: 1, ResultDesc: "Invalid callback" }, { status: 400 });
+  const cb = parsed.data.Body.stkCallback;
 
-  const order = await db.order.findUnique({ where: { checkoutRequestId: cb.CheckoutRequestID } });
-  if (!order) return accepted;
+  const order = await findPaymentOrder(cb.CheckoutRequestID);
+  // A callback can race the persistence of the STK response; don't acknowledge it as processed.
+  if (!order) return NextResponse.json({ ResultCode: 1, ResultDesc: "Unknown request" }, { status: 503 });
 
   if (Number(cb.ResultCode) !== 0) {
-    await markFailed(order.id, friendlyResult(cb.ResultCode, cb.ResultDesc));
+    await markFailed(order.id, friendlyResult(cb.ResultCode, cb.ResultDesc), cb.CheckoutRequestID);
     return accepted;
   }
 
-  const items = cb.CallbackMetadata?.Item ?? [];
-  const get = (name: string) => items.find((i) => i.Name === name)?.Value;
-  const amount = Number(get("Amount") ?? 0);
-  const receipt = get("MpesaReceiptNumber") ? String(get("MpesaReceiptNumber")) : null;
+  const metadata = paidMetadata(cb.CallbackMetadata?.Item);
+  if (!metadata) return NextResponse.json({ ResultCode: 1, ResultDesc: "Invalid payment metadata" }, { status: 400 });
+  const { amount, receipt } = metadata;
 
   if (amount < order.total) {
     const note = `Received KSh ${amount}, expected KSh ${order.total}. Check this payment manually.`;
-    await db.order.update({ where: { id: order.id }, data: { status: "PAYMENT_FAILED", paymentNote: note } });
-    await db.orderEvent.create({ data: { orderId: order.id, status: "PAYMENT_FAILED", note } });
+    await markFailed(order.id, note, cb.CheckoutRequestID);
     return accepted;
   }
 
-  if (order.status === "PAID" && !order.mpesaReceipt && receipt) {
-    // Already confirmed by a status query; store the receipt number.
-    await db.order.update({ where: { id: order.id }, data: { mpesaReceipt: receipt } });
-  } else {
-    await markPaid(order.id, receipt);
-  }
+  await markPaid(order.id, receipt, cb.CheckoutRequestID);
+  after(() => processOrderMailJobs(order.id));
   return accepted;
 }

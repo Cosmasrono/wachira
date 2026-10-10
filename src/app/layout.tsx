@@ -9,7 +9,7 @@ const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variabl
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
-  title: { default: `${SITE.name} – ${SITE.tagline}`, template: `%s · ${SITE.name}` },
+  title: { default: `${SITE.name} - ${SITE.tagline}`, template: `%s \u00B7 ${SITE.name}` },
   description: "Kitenge, linen and tailored clothing made in Kenya. Order in your size or made to your measurements, and pay with M-Pesa.",
 };
 
