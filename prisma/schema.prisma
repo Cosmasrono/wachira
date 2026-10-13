@@ -38,10 +38,10 @@ model Order {
   number             String    @unique // e.g. WCH-7KQ2MX
   status             String    @default("PENDING_PAYMENT")
   customerName       String
-  customerUid        String? // signed-in email that placed the order
+  customerUid        String?
   customerEmail      String?
-  phone              String // 2547XXXXXXXX
-  deliveryMethod     String // PICKUP | NAIROBI | COUNTY
+  phone              String 
+  deliveryMethod     String 
   county             String    @default("")
   area               String    @default("")
   notes              String    @default("")
