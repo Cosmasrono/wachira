@@ -27,7 +27,7 @@ export default async function Shop({ searchParams }: Props) {
   return (
     <section className="first">
       <div className="sec-head">
-        <div><p className="label">The Wachira wardrobe</p><h1>{custom ? "Made to measure" : cat ? cat.label : "The collection"}</h1><p className="collection-intro">{custom ? "Choose your piece. Consult with us on WhatsApp. Make it yours." : "Tailored silhouettes, expressive colour, and a fit that feels like you."}</p></div>
+        <div><p className="label">The Wachira wardrobe</p><h1>{custom ? "Made to measure" : cat ? cat.label : "The collection"}</h1><p className="collection-intro">Choose an outfit picture, enter your size and contact details, then add it to your bag.</p></div>
         <nav className="chips" aria-label="Filter by category">
           <Link className="chip" href="/shop" aria-current={!cat && !custom ? "page" : undefined}>All</Link>
           {CATEGORIES.map((c) => (
@@ -45,7 +45,7 @@ export default async function Shop({ searchParams }: Props) {
         <div className="catalog-fitting-copy">
           <p className="label">Made to your measurements</p>
           <h2>Your style. Your fit.</h2>
-          <p>Choose an outfit below and consult with us on WhatsApp about your measurements. We tailor the piece to fit you.</p>
+          <p>Choose your outfit from the photo samples below. Select your usual size or enter your measurements, add your contact details, and add the outfit to your bag.</p>
           <p className="hint">Custom tailoring adds {ksh(CUSTOM_FEE)} per item. Ready in {CUSTOM_LEAD_TIME}, before delivery.</p>
           {custom ? (
             <a className="btn primary" href="#catalog-products">Choose your outfit ↓</a>

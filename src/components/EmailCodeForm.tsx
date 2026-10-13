@@ -39,7 +39,7 @@ export default function EmailCodeForm({
       if (res.error) return setError(res.error);
       setStep("code");
       setCode("");
-      setInfo(`We sent a 6-digit code to ${email.trim()}. It works for 10 minutes.`);
+      setInfo(`If ${email.trim()} is on the staff list, we sent it a 6-digit code. It works for 10 minutes.`);
     });
   };
 

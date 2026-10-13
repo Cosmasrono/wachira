@@ -2,14 +2,18 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { z } from "zod";
 import {
-  hashPassword,
+  allowCodeSend,
+  issuePasswordCode,
   loginSchema,
-  sendVerificationCode,
+  PASSWORD_CODE_SCOPE,
+  sendPasswordCode,
+  setPasswordSchema,
+  setPasswordWithCode,
   signupSchema,
-  verifyEmailCode,
   verifyPassword,
-  verifySchema,
 } from "@/lib/auth";
 import { safeNext } from "@/lib/customer";
 import { db } from "@/lib/db";
@@ -29,7 +33,32 @@ export type AuthState = {
   needsVerification?: boolean;
 };
 
-/** Handles user registration, creates pending user, and sends verification code email */
+const emailInput = z.string().trim().toLowerCase().email().max(200);
+
+async function signIn(user: { id: string; email: string; name: string; sessionKey: string | null }) {
+  const session = { uid: user.id, email: user.email, name: user.name || undefined, version: user.sessionKey ?? undefined };
+  (await cookies()).set(
+    CUSTOMER_COOKIE,
+    await createSession("customer", session, CUSTOMER_SESSION_DAYS),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: CUSTOMER_SESSION_DAYS * 24 * 60 * 60,
+    }
+  );
+}
+
+const codePage = (email: string, next: string, mode: "verify" | "reset") =>
+  `/verify-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}${mode === "reset" ? "&mode=reset" : ""}`;
+
+/**
+ * Step 1 of signup: the email only. The name and password are chosen on the code page, after the
+ * email is proven, so a stranger can never pre-register someone's address with a known password
+ * or put their own words into the emails sent to it.
+ * The response is the same whether or not the address already has an account.
+ */
 export async function signupCustomerAction(
   _prev: AuthState,
   formData: FormData
@@ -38,100 +67,97 @@ export async function signupCustomerAction(
     return { error: "Authentication is temporarily unavailable. Please try again later." };
   }
 
-  const raw = {
-    name: String(formData.get("name") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    password: String(formData.get("password") ?? ""),
-    confirmPassword: String(formData.get("confirmPassword") ?? ""),
-  };
   const next = safeNext(String(formData.get("next") ?? ""));
-
-  const parsed = signupSchema.safeParse(raw);
+  const parsed = signupSchema.safeParse({
+    email: String(formData.get("email") ?? ""),
+  });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   }
 
-  const { name, email, password } = parsed.data;
+  const { email } = parsed.data;
   if (!await allowAuthRequest("signup", email, 5)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
-  // Check if an account already exists with this email
-  const existingUser = await db.user.findUnique({ where: { email } });
-
-  if (existingUser && existingUser.emailVerified) {
-    return {
-      error: "An account with this email already exists. Please log in instead.",
-    };
+  const existing = await db.user.findUnique({ where: { email } });
+  if (!existing) {
+    // No usable password until the inbox owner sets one with the emailed code.
+    await db.user.create({ data: { name: "", email, passwordHash: "", emailVerified: false } });
   }
 
-  if (existingUser && !existingUser.emailVerified) {
-    // Never replace credentials without proving ownership of the existing account.
-    return {
-      error: "Registration is already pending for this email. Verify your email, then log in with your original password.",
-      needsVerification: true, email, next,
-    };
-  } else {
-    // Create new unverified user
-    await db.user.create({
-      data: {
-        name,
-        email,
-        passwordHash: await hashPassword(password),
-        emailVerified: false,
-      },
-    });
-  }
-
-  // Send the verification code
-  const sent = await sendVerificationCode(email, name);
+  // An existing verified account gets a reset code instead: only the inbox owner can use it.
+  const sent = existing?.emailVerified
+    ? await sendPasswordCode(email, "reset", existing.name)
+    : await sendPasswordCode(email, "verify");
   if (!sent.ok) {
-    return { error: sent.error ?? "Failed to send verification code. Please try again." };
+    return { error: sent.error ?? "Failed to send the code. Please try again." };
   }
 
-  // Redirect to verify-email page
-  redirect(`/verify-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+  redirect(codePage(email, next, "verify"));
 }
 
-/** Handles code verification. Once verified, routes to /login */
-export async function verifyEmailAction(
+/** Step 2 (signup or password reset): the emailed code plus the new password. Signs the customer in. */
+export async function setPasswordAction(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const code = String(formData.get("code") ?? "").trim();
+  if (!sessionsConfigured()) {
+    return { error: "Authentication is temporarily unavailable. Please try again later." };
+  }
+
   const next = safeNext(String(formData.get("next") ?? ""));
-
-  const parsed = verifySchema.safeParse({ email, code });
+  const parsed = setPasswordSchema.safeParse({
+    email: String(formData.get("email") ?? ""),
+    code: String(formData.get("code") ?? ""),
+    password: String(formData.get("password") ?? ""),
+    confirmPassword: String(formData.get("confirmPassword") ?? ""),
+    name: formData.has("name") ? String(formData.get("name")) : undefined,
+  });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Enter the 6-digit code." };
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   }
 
-  const verified = await verifyEmailCode(email, code);
-  if (!verified.ok) {
-    return { error: verified.error ?? "Failed to verify code. Please try again." };
-  }
+  const { email, code, password, name } = parsed.data;
+  if (!await allowAuthRequest("set-password", email)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
-  // On verify, route to /login with verified query param
-  redirect(
-    `/login?verified=true&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`
-  );
+  const result = await setPasswordWithCode(email, code, password, name);
+  if (!result.ok) return { error: result.error };
+
+  await signIn(result.user);
+  redirect(next === "/shop" ? "/account" : next);
 }
 
-/** Resends a verification code to the given email */
-export async function resendVerificationAction(
-  email: string
-): Promise<{ ok: boolean; error?: string }> {
-  if (!email) return { ok: false, error: "Email is required." };
-  const normalized = email.trim().toLowerCase();
+/**
+ * Sends a fresh code for the code page (resend) or the forgot-password page.
+ * Always answers the same way, so it can't be used to find out who has an account: the limits are
+ * counted before the address is looked up, and the email goes out after the reply is sent.
+ */
+export async function requestPasswordCodeAction(email: string): Promise<{ ok: boolean; error?: string }> {
+  const parsed = emailInput.safeParse(email);
+  if (!parsed.success) return { ok: false, error: "Enter a valid email address." };
 
-  const user = await db.user.findUnique({ where: { email: normalized } });
-  if (!user) {
-    return { ok: false, error: "No account found with that email." };
+  if (!await allowAuthRequest("password-code-request", parsed.data)) {
+    return { ok: false, error: "Too many attempts. Please try again in 15 minutes." };
   }
-  if (user.emailVerified) {
-    return { ok: false, error: "Your email is already verified. Please log in." };
-  }
+  const allowed = await allowCodeSend(PASSWORD_CODE_SCOPE, parsed.data);
+  if (!allowed.ok) return allowed;
 
-  return sendVerificationCode(normalized, user.name);
+  const user = await db.user.findUnique({ where: { email: parsed.data } });
+  if (user) {
+    after(() => issuePasswordCode(parsed.data, user.emailVerified ? "reset" : "verify", user.emailVerified ? user.name : undefined));
+  }
+  return { ok: true };
+}
+
+/** Forgot-password form: emails a reset code (if the account exists) and opens the code page. */
+export async function forgotPasswordAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const next = safeNext(String(formData.get("next") ?? ""));
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const sent = await requestPasswordCodeAction(email);
+  if (!sent.ok) return { error: sent.error, email };
+  redirect(codePage(email, next, "reset"));
 }
 
 /** Handles login with email and password */
@@ -158,13 +184,14 @@ export async function loginCustomerAction(
   if (!await allowAuthRequest("password-login", email)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
   const user = await db.user.findUnique({ where: { email } });
-  if (!user || !await verifyPassword(password, user.passwordHash)) {
+  // Checked even when there's no account, so the reply time doesn't reveal which addresses have one.
+  if (!await verifyPassword(password, user?.passwordHash ?? "") || !user) {
     return { error: "Invalid email or password. Please try again." };
   }
 
   if (!user.emailVerified) {
-    // Automatically trigger a fresh verification code so they can verify right away
-    await sendVerificationCode(user.email, user.name);
+    // Accounts created before passwords were set at verification: confirm the email the new way.
+    await sendPasswordCode(user.email, "verify");
     return {
       error: "Please verify your email address before logging in.",
       needsVerification: true,
@@ -173,24 +200,7 @@ export async function loginCustomerAction(
     };
   }
 
-  // Create session cookie
-  const cookieStore = await cookies();
-  cookieStore.set(
-    CUSTOMER_COOKIE,
-    await createSession(
-      "customer",
-      { uid: user.id, email: user.email, name: user.name },
-      CUSTOMER_SESSION_DAYS
-    ),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: CUSTOMER_SESSION_DAYS * 24 * 60 * 60,
-    }
-  );
-
+  await signIn(user);
   redirect(next === "/shop" ? "/account" : next);
 }
 

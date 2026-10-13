@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "./CartProvider";
 import ProductImage from "./ProductImage";
 import { DELIVERY, DELIVERY_METHODS, deliveryFee, FREE_NAIROBI_OVER, type DeliveryMethod } from "@/lib/config";
@@ -11,11 +11,17 @@ import { orderInput } from "@/lib/validation";
 
 export default function CheckoutForm({ defaultName = "" }: { defaultName?: string }) {
   const router = useRouter();
-  const { lines, loaded, subtotal, clear, setOpen } = useCart();
+  const { lines, loaded, subtotal, clear, setOpen, contact } = useCart();
 
   const [form, setForm] = useState({
     customerName: defaultName, phone: "", county: "Nairobi", area: "", notes: "", mpesaPhone: "",
   });
+  const contactPrefilled = useRef(false);
+  useEffect(() => {
+    if (!loaded || contactPrefilled.current) return;
+    contactPrefilled.current = true;
+    setForm((current) => ({ ...current, customerName: contact.name || current.customerName, phone: current.phone || contact.phone }));
+  }, [loaded, contact]);
   const [method, setMethod] = useState<DeliveryMethod>("NAIROBI");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,7 +62,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
       mpesaPhone: differentPhone ? form.mpesaPhone : form.phone,
       deliveryMethod: method,
       items: lines.map((l) => ({ productId: l.productId, qty: l.qty,
-        size: l.measurements ? undefined : l.size, measurements: l.measurements, fitNote: l.fitNote })),
+        size: l.measurements ? undefined : l.size, measurements: l.measurements, fitNote: l.fitNote, sampleImage: l.sampleImage })),
     };
     const result = orderInput.safeParse(payload);
     if (!result.success) {

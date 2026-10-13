@@ -43,15 +43,16 @@ export default function StyleGallery({ preview = false, products }: {
       </div>}
       <div className="looks-grid">
         {visible.map((look) => {
+          const href = `/products/${look.slug}?sample=${encodeURIComponent(look.image)}`;
           return <article className="look-card" key={`${look.slug}:${look.image}`}>
-            <Link className="look-photo" href={`/products/${look.slug}`} aria-label={`View ${look.name}`}>
+            <Link className="look-photo" href={href} aria-label={`Choose ${look.name}`}>
               <Image src={look.image} alt={look.name} fill sizes="(max-width: 640px) 50vw, (max-width: 900px) 50vw, 25vw" style={{ objectFit: "contain" }} />
-              <span className="look-photo-hint">View outfit →</span>
+              <span className="look-photo-hint">Choose this outfit →</span>
             </Link>
             <p className="label">{look.category === "men" ? "Menswear" : "Womenswear"}</p>
             <h3>{look.name}</h3>
             <p className="price">{look.price > 0 ? ksh(look.price) : "Price on consultation"}</p>
-            <ConsultLink className="more" name={look.name} slug={look.slug}>Consult on WhatsApp ↗</ConsultLink>
+            {look.price > 0 ? <Link className="more" href={href}>Choose outfit & size →</Link> : <ConsultLink className="more" name={look.name} slug={look.slug}>Ask for a price ↗</ConsultLink>}
           </article>;
         })}
       </div>

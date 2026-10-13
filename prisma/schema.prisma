@@ -109,6 +109,8 @@ model User {
   name          String
   passwordHash  String
   emailVerified Boolean  @default(false)
+  /// Changed on every password set; sessions carrying an older value stop working.
+  sessionKey    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

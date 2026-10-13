@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
-import { AlertCircle, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { useActionState } from "react";
+import { AlertCircle, Loader2, ArrowRight } from "lucide-react";
 import { signupCustomerAction } from "../auth-actions";
 
 export default function SignupForm({ next }: { next: string }) {
   const [state, formAction, isPending] = useActionState(signupCustomerAction, {});
-  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="stack" noValidate>
@@ -19,24 +18,6 @@ export default function SignupForm({ next }: { next: string }) {
           <span>{state.error}</span>
         </div>
       )}
-      {state?.needsVerification && state.email && (
-        <Link href={`/verify-email?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(state.next ?? next)}`}>
-          Continue email verification
-        </Link>
-      )}
-
-      <label htmlFor="name">
-        Full name
-        <input
-          id="name"
-          name="name"
-          type="text"
-          autoComplete="name"
-          required
-          placeholder="e.g. Wanjiku Kamau"
-          disabled={isPending}
-        />
-      </label>
 
       <label htmlFor="email">
         Email address
@@ -51,52 +32,18 @@ export default function SignupForm({ next }: { next: string }) {
         />
       </label>
 
-      <label htmlFor="password">
-        Password
-        <div className="auth-password-wrap">
-          <input
-            id="password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            autoComplete="new-password"
-            required
-            placeholder="At least 12 characters"
-            disabled={isPending}
-          />
-          <button
-            type="button"
-            className="auth-password-toggle"
-            onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-      </label>
-
-      <label htmlFor="confirmPassword">
-        Confirm password
-        <div className="auth-password-wrap">
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type={showPassword ? "text" : "password"}
-            autoComplete="new-password"
-            required
-            placeholder="Re-enter your password"
-            disabled={isPending}
-          />
-        </div>
-      </label>
+      <p className="hint">
+        We&apos;ll email you a 6-digit code. You&apos;ll add your name and choose your password on the next step, once your email is confirmed.
+      </p>
 
       <button className="btn primary lg" type="submit" disabled={isPending}>
         {isPending ? (
           <>
-            <Loader2 className="animate-spin" size={18} /> Creating account &amp; sending code...
+            <Loader2 className="animate-spin" size={18} /> Sending code...
           </>
         ) : (
           <>
-            Create account <ArrowRight size={16} />
+            Continue <ArrowRight size={16} />
           </>
         )}
       </button>

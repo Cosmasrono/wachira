@@ -11,6 +11,7 @@ export const orderItemInput = z.object({
   size: z.string().max(20).optional(),
   measurements: z.record(z.string(), z.number().positive().max(300)).optional(),
   fitNote: z.string().trim().max(300).optional(),
+  sampleImage: z.string().max(2048).optional(),
 });
 
 export const orderInput = z

@@ -7,7 +7,8 @@ import { after } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { db, Prisma } from "@/lib/db";
 import { slugify } from "@/lib/format";
-import { checkLoginCode, sendLoginCode } from "@/lib/login-code";
+import { allowCodeSend } from "@/lib/auth";
+import { checkLoginCode, normalizeEmail, sendLoginCode } from "@/lib/login-code";
 import { isStatus, nextActions } from "@/lib/order-status";
 import { ADMIN_COOKIE, SESSION_DAYS, createSession, isAdminEmail, sessionsConfigured } from "@/lib/session";
 import { productInput } from "@/lib/validation";
@@ -15,10 +16,16 @@ import { processOrderMailJobs, queueOrderPaidEmails } from "@/lib/order-mail";
 
 export type FormState = { error: string };
 
-/** Emails a sign-in code, but only to addresses on the staff list. */
+/**
+ * Emails a sign-in code, but only to addresses on the staff list. Other addresses get the same
+ * reply (and use up the same send limits), so the form can't be used to find out who is staff.
+ */
 export async function sendAdminCode(email: string): Promise<FormState> {
   if (!sessionsConfigured()) return { error: "Set AUTH_SECRET (32+ characters) in the .env file first." };
-  if (!isAdminEmail(email.trim())) return { error: `${email.trim()} is not on the staff list. Ask the owner to add it.` };
+  if (!isAdminEmail(email.trim())) {
+    const allowed = await allowCodeSend("code-send:admin", normalizeEmail(email));
+    return { error: allowed.ok ? "" : allowed.error };
+  }
   const sent = await sendLoginCode("admin", email);
   return { error: sent.ok ? "" : sent.error };
 }

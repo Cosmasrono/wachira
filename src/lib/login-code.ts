@@ -1,19 +1,16 @@
-// Email sign-in: we email a 6-digit code, and typing it back proves the person owns the inbox.
+// Staff sign-in: we email a 6-digit code, and typing it back proves the person owns the inbox.
 
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { mailConfigured, sendMail } from "./mail";
 import type { SessionKind, SessionUser } from "./session";
-import { allowAuthAttempt } from "./rate-limit";
+import { allowCodeSend } from "./auth";
 
 /** How long a code works. */
 const CODE_MINUTES = 10;
 
 /** Wrong guesses allowed per code before it stops working. */
 const MAX_ATTEMPTS = 5;
-
-/** Minimum wait before sending another code to the same address. */
-const RESEND_SECONDS = 60;
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -25,13 +22,9 @@ export type SendResult = { ok: true } | { ok: false; error: string };
 
 export async function sendLoginCode(kind: SessionKind, rawEmail: string): Promise<SendResult> {
   const email = normalizeEmail(rawEmail);
-  if (!await allowAuthAttempt(`code-send:${kind}`, email, 1, RESEND_SECONDS * 1000)) {
-    return { ok: false, error: "A code was just sent. Wait a minute before asking for another." };
-  }
-  const recent = await db.loginCode.findFirst({
-    where: { email, kind, createdAt: { gt: new Date(Date.now() - RESEND_SECONDS * 1000) } },
-  });
-  if (recent) return { ok: false, error: "A code was just sent. Wait a minute before asking for another." };
+  // Per-minute and daily caps: each code allows 5 guesses, so this bounds guessing to 50 a day.
+  const allowed = await allowCodeSend(`code-send:${kind}`, email);
+  if (!allowed.ok) return allowed;
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   await db.loginCode.deleteMany({ where: { email, kind } });

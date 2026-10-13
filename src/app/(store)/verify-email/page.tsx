@@ -12,19 +12,20 @@ export const metadata: Metadata = {
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; next?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; mode?: string }>;
 }) {
   const customer = await currentCustomer();
   const params = await searchParams;
   const email = params.email?.trim() || "";
   const next = safeNext(params.next);
+  const mode = params.mode === "reset" ? "reset" : "verify";
 
   if (customer) {
     redirect(next === "/shop" ? "/account" : next);
   }
 
   if (!email) {
-    redirect("/signup");
+    redirect(mode === "reset" ? "/forgot-password" : "/signup");
   }
 
   return (
@@ -33,16 +34,20 @@ export default async function VerifyEmailPage({
         <div className="auth-header">
           <div className="auth-badge-row">
             <span className="auth-step-pill">
-              <ShieldCheck size={14} /> Step 2 of 2 &middot; Verification
+              <ShieldCheck size={14} /> {mode === "reset" ? "Password reset" : <>Step 2 of 2 &middot; Verification</>}
             </span>
           </div>
-          <h1>Verify your email</h1>
+          <h1>{mode === "reset" ? "Choose a new password" : "Verify your email"}</h1>
           <p className="lead">
-            We sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to activate your account.
+            {mode === "reset" ? (
+              <>If <strong>{email}</strong> has an account, we&apos;ve sent it a 6-digit code. Enter the code and choose a new password.</>
+            ) : (
+              <>We&apos;ve sent a 6-digit code to <strong>{email}</strong>. Enter it, add your name and choose your password to finish creating your account.</>
+            )}
           </p>
         </div>
 
-        <VerifyEmailForm email={email} next={next} />
+        <VerifyEmailForm email={email} next={next} mode={mode} />
       </div>
     </section>
   );

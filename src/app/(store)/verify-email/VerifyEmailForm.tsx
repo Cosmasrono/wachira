@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { CheckCircle2, AlertCircle, Loader2, RotateCw, ArrowRight, Mail } from "lucide-react";
-import { resendVerificationAction, verifyEmailAction } from "../auth-actions";
+import { CheckCircle2, AlertCircle, Loader2, RotateCw, ArrowRight, Mail, Eye, EyeOff } from "lucide-react";
+import { requestPasswordCodeAction, setPasswordAction } from "../auth-actions";
 
 export default function VerifyEmailForm({
   email,
   next,
+  mode,
 }: {
   email: string;
   next: string;
+  mode: "verify" | "reset";
 }) {
-  const [state, formAction, isPending] = useActionState(verifyEmailAction, {});
+  const [state, formAction, isPending] = useActionState(setPasswordAction, {});
+  const [showPassword, setShowPassword] = useState(false);
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(60);
   const [resendMsg, setResendMsg] = useState("");
@@ -99,7 +102,7 @@ export default function VerifyEmailForm({
     setResendErr("");
 
     try {
-      const res = await resendVerificationAction(email);
+      const res = await requestPasswordCodeAction(email);
       if (res.ok) {
         setResendMsg("A new 6-digit code has been sent to your email.");
         setResendCooldown(60);
@@ -142,7 +145,7 @@ export default function VerifyEmailForm({
 
       <div className="otp-wrapper">
         <label className="otp-label" htmlFor="otp-0">
-          Enter 6-digit verification code
+          Enter the 6-digit code from your email
         </label>
         <div className="otp-inputs" onPaste={handlePaste}>
           {digits.map((digit, i) => (
@@ -191,6 +194,59 @@ export default function VerifyEmailForm({
         )}
       </div>
 
+      {mode === "verify" && (
+        <label htmlFor="name">
+          Full name
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            required
+            placeholder="e.g. Wanjiku Kamau"
+            disabled={isPending}
+          />
+        </label>
+      )}
+
+      <label htmlFor="password">
+        {mode === "reset" ? "New password" : "Choose a password"}
+        <div className="auth-password-wrap">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            required
+            placeholder="At least 12 characters"
+            disabled={isPending}
+          />
+          <button
+            type="button"
+            className="auth-password-toggle"
+            onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+      </label>
+
+      <label htmlFor="confirmPassword">
+        Confirm password
+        <div className="auth-password-wrap">
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            required
+            placeholder="Re-enter your password"
+            disabled={isPending}
+          />
+        </div>
+      </label>
+
       <button
         className="btn primary lg"
         type="submit"
@@ -198,21 +254,28 @@ export default function VerifyEmailForm({
       >
         {isPending ? (
           <>
-            <Loader2 className="animate-spin" size={18} /> Verifying code...
+            <Loader2 className="animate-spin" size={18} /> Saving...
           </>
         ) : (
           <>
-            Verify &amp; proceed to log in <ArrowRight size={16} />
+            {mode === "reset" ? "Save new password" : "Create account"} &amp; sign in <ArrowRight size={16} />
           </>
         )}
       </button>
 
       <div className="auth-footer">
         <Mail size={16} className="text-muted" />
-        <span>Wrong email address?</span>
-        <Link href={`/signup?next=${encodeURIComponent(next)}`}>
-          Sign up with another email
-        </Link>
+        {mode === "reset" ? (
+          <>
+            <span>Remembered it?</span>
+            <Link href={`/login?next=${encodeURIComponent(next)}`}>Back to log in</Link>
+          </>
+        ) : (
+          <>
+            <span>Wrong email address?</span>
+            <Link href={`/signup?next=${encodeURIComponent(next)}`}>Sign up with another email</Link>
+          </>
+        )}
       </div>
     </form>
   );

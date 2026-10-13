@@ -1,5 +1,4 @@
 import Link from "next/link";
-import ConsultLink from "./ConsultLink";
 import CartButton from "./CartButton";
 import { CATEGORIES, SITE } from "@/lib/config";
 
@@ -17,7 +16,6 @@ export default function Header() {
         <Link className="logo" href="/">{SITE.name}</Link>
         <div className="tools">
           <Link className="story-link" href="/#steps-h">How it works</Link>
-          <ConsultLink className="account-link">Consult on WhatsApp</ConsultLink>
           <Link className="account-link" href="/account">Account</Link>
           <CartButton />
         </div>

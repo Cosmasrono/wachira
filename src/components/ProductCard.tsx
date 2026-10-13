@@ -23,7 +23,7 @@ export default function ProductCard({ product: p }: { product: Product }) {
         </span>
         <span className="price">{p.price > 0 ? ksh(p.price) : "Price on consultation"}</span>
       </div>
-      <ConsultLink name={p.name} slug={p.slug} className="more">Consult on WhatsApp ↗</ConsultLink>
+      {p.price > 0 ? <Link href={`/products/${p.slug}`} className="more">Choose outfit & size →</Link> : <ConsultLink name={p.name} slug={p.slug} className="more">Ask for a price ↗</ConsultLink>}
       {p.allowCustom && splitList(p.measureFields).length > 0 && (
         <span className="hint">Standard sizes or made to measure</span>
       )}

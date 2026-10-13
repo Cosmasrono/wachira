@@ -25,7 +25,8 @@ export function isAdminEmail(email: string | undefined) {
 }
 
 export type SessionKind = "admin" | "customer";
-export type SessionUser = { uid: string; email: string; name?: string };
+/** `version` is the account's sessionKey when the session was issued (customers only). */
+export type SessionUser = { uid: string; email: string; name?: string; version?: string };
 
 /** Sessions are signed with AUTH_SECRET. Too short a secret would be guessable, so it's refused. */
 export const sessionsConfigured = () => (process.env.AUTH_SECRET ?? "").length >= 32;
@@ -33,7 +34,7 @@ export const sessionsConfigured = () => (process.env.AUTH_SECRET ?? "").length >
 const secret = () => new TextEncoder().encode(process.env.AUTH_SECRET);
 
 export async function createSession(kind: SessionKind, user: SessionUser, days: number) {
-  return new SignJWT({ email: user.email, name: user.name })
+  return new SignJWT({ email: user.email, name: user.name, sv: user.version })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.uid)
     .setAudience(kind) // a shopper cookie can never pass as a staff one
@@ -47,7 +48,12 @@ export async function readSession(kind: SessionKind, token: string | undefined):
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"], audience: kind });
     if (!payload.sub || typeof payload.email !== "string") return null;
-    return { uid: payload.sub, email: payload.email, name: typeof payload.name === "string" ? payload.name : undefined };
+    return {
+      uid: payload.sub,
+      email: payload.email,
+      name: typeof payload.name === "string" ? payload.name : undefined,
+      version: typeof payload.sv === "string" ? payload.sv : undefined,
+    };
   } catch {
     return null;
   }

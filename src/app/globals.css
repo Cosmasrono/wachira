@@ -715,4 +715,12 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   .bar .logo { font-size: 18px; letter-spacing: .1em; }
   .tools { gap: 8px; }
 }
+.sample-selection, .outfit-contact { min-width: 0; margin: 24px 0; padding: 16px; border: 1px solid var(--line, #ddd); }
+.sample-selection legend, .outfit-contact legend { padding: 0 6px; font-weight: 600; }
+.sample-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sample-options button { min-width: 0; padding: 8px; border: 2px solid transparent; background: #f6f3ee; color: inherit; text-align: left; cursor: pointer; }
+.sample-options button[aria-pressed="true"] { border-color: currentColor; }
+.sample-options button:focus-visible { outline: 3px solid #9b6537; outline-offset: 3px; }
+.sample-photo { display: block; position: relative; aspect-ratio: 4 / 5; margin-bottom: 8px; }
+.outfit-contact label { display: grid; gap: 6px; margin-bottom: 12px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

@@ -2,6 +2,7 @@ import { db } from "./db";
 import { ALWAYS_MEASURE, CUSTOM_FEE, deliveryFee, type DeliveryMethod } from "./config";
 import { splitList } from "./format";
 import type { OrderInput } from "./validation";
+import { LOOKS } from "./looks";
 
 export class PricingError extends Error {}
 
@@ -20,6 +21,12 @@ export async function priceOrder(items: OrderInput["items"], method: DeliveryMet
     }
 
     if (p.price <= 0) throw new PricingError(`Please consult with us on WhatsApp about ${p.name} before ordering.`);
+    const sampleImages = Array.from(new Set([p.image, p.image2].filter((image): image is string => !!image)));
+    if (item.sampleImage && !sampleImages.includes(item.sampleImage)) {
+      throw new PricingError(`The selected outfit picture for ${p.name} is no longer available. Please choose it again.`);
+    }
+    const sampleLabel = LOOKS.find((look) => `/products/${look.image}` === item.sampleImage)?.name ?? `Sample ${sampleImages.indexOf(item.sampleImage ?? "") + 1}`;
+    const name = item.sampleImage ? `${p.name} — ${sampleLabel}` : p.name;
 
     if (item.measurements) {
       const fields = [...splitList(p.measureFields), ALWAYS_MEASURE];
@@ -31,7 +38,7 @@ export async function priceOrder(items: OrderInput["items"], method: DeliveryMet
       const measurements = Object.fromEntries(fields.map((f) => [f, item.measurements![f]]));
       return {
         productId: p.id,
-        name: p.name,
+        name,
         unitPrice: p.price + CUSTOM_FEE,
         qty: item.qty,
         size: "Custom",
@@ -46,7 +53,7 @@ export async function priceOrder(items: OrderInput["items"], method: DeliveryMet
     }
     return {
       productId: p.id,
-      name: p.name,
+      name,
       unitPrice: p.price,
       qty: item.qty,
       size: item.size,

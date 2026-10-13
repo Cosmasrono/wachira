@@ -52,11 +52,24 @@ native engine binaries are not source files and must not be committed. The old
 
 ## Authentication
 
-Customer signup requires a password of 12–256 characters and email verification.
-Existing accounts keep their passwords; signing up again cannot replace an unverified
-account's credentials. Passwords use salted asynchronous scrypt. Existing hashes
-remain valid. Staff use single-use six-digit codes with a ten-minute expiry and five
-attempts. Sessions last fourteen days for customers and seven days for staff.
+Customer signup asks only for an email. We email a six-digit code, and the customer
+enters their name and chooses their password (12–256 characters) on the same page where
+they enter the code. The name and password are only ever set together with a valid code,
+so nobody can pre-register someone else's email with a password they know, or put their
+own text into the emails sent to it. "Forgot password" at `/forgot-password` uses the
+same code-plus-new-password page. Signup, resend, forgot-password, login and the staff
+sign-in form respond the same way whether or not an account (or staff address) exists.
+
+Setting a new password signs out every existing session for that account: each
+customer session carries the account's `sessionKey`, which changes on every password
+set and is checked on each request. After-login `next=` redirects only accept paths on
+this site.
+
+Passwords use salted asynchronous scrypt; existing hashes remain valid. Codes expire
+after ten minutes, allow five attempts, and are limited to one a minute and ten a day
+per email (customers and staff), which caps guessing at 50 attempts a day. Staff sign
+in with single-use six-digit codes. Sessions last fourteen days for customers and
+seven days for staff.
 
 Login and signup limits are stored in MongoDB so multiple server instances share the
 same limits. Configure `AUTH_TRUSTED_IP_HEADER` only when your reverse proxy overwrites

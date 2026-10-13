@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../node_modules/.prisma/wachira-client";
 
 const db = new PrismaClient();
 
@@ -110,26 +110,22 @@ const products = [
   },
 ];
 
-// Earlier sample products that no longer have photos. Hidden, not deleted, so past orders keep their link.
-const RETIRED = [
-  "amani-kitenge-wrap-dress", "juma-linen-shirt", "nia-kanga-print-tee", "baraka-tailored-trousers",
-  "zawadi-maxi-dress", "kito-kids-tee", "kiondo-sisal-tote", "imani-shirt-jacket",
-];
-
 async function main() {
   for (const [i, { photos, ...p }] of products.entries()) {
     const key = p.slug.split("-")[0];
     const data = {
       ...p,
+      active: true,
+      allowCustom: true,
       image: `/products/${key}-1.jpg`,
       image2: photos > 1 ? `/products/${key}-2.jpg` : null,
       // Stagger createdAt so "newest first" keeps this order.
       createdAt: new Date(Date.now() - i * 60_000),
     };
-    await db.product.upsert({ where: { slug: p.slug }, update: data, create: data });
+    // Populate missing outfits without overwriting prices or edits made in Admin.
+    await db.product.upsert({ where: { slug: p.slug }, update: {}, create: data });
   }
-  await db.product.updateMany({ where: { slug: { in: RETIRED } }, data: { active: false, featured: false } });
-  console.log(`Seeded ${products.length} products.`);
+  console.log(`Ensured ${products.length} sample products exist; existing products were preserved.`);
 }
 
 main()

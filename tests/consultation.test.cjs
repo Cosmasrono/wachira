@@ -32,6 +32,7 @@ test('an unconfigured contact does not create a broken WhatsApp link', () => {
 test('checkout rejects unpriced samples while accepting priced products', async () => {
   const product = { id: 'sample', name: 'Sample suit', price: 0, sizes: 'M' };
   const { priceOrder } = load('src/lib/pricing.ts', {
+    './looks': { LOOKS: [] },
     './db': { db: { product: { findMany: async () => [product] } } },
     './config': { ALWAYS_MEASURE: 'Height', CUSTOM_FEE: 800, deliveryFee: () => 0 },
     './format': { splitList: (value) => value.split(',') },
@@ -40,4 +41,22 @@ test('checkout rejects unpriced samples while accepting priced products', async 
   await assert.rejects(priceOrder(items, 'PICKUP'), /consult.*WhatsApp/);
   product.price = 1500;
   assert.equal((await priceOrder(items, 'PICKUP')).total, 1500);
+});
+
+test('selected outfit photos are validated and kept in standard and custom order names', async () => {
+  const product = { id: 'outfit', name: 'Suit', price: 1500, sizes: 'M', image: '/products/blue.jpg', image2: '/products/grey.jpg', allowCustom: true, measureFields: 'Chest' };
+  const { priceOrder } = load('src/lib/pricing.ts', {
+    './db': { db: { product: { findMany: async () => [product] } } },
+    './looks': { LOOKS: [{ image: 'grey.jpg', name: 'Grey suit' }] },
+    './config': { ALWAYS_MEASURE: 'Height', CUSTOM_FEE: 800, deliveryFee: () => 0 },
+    './format': { splitList: (value) => value.split(',') },
+  });
+  const item = { productId: 'outfit', size: 'M', qty: 1, sampleImage: '/products/grey.jpg' };
+  const standard = await priceOrder([item], 'PICKUP');
+  assert.equal(standard.lines[0].name, 'Suit — Grey suit');
+  assert.equal(standard.total, 1500);
+  const custom = await priceOrder([{ ...item, measurements: { Chest: 90, Height: 170 } }], 'PICKUP');
+  assert.equal(custom.lines[0].name, 'Suit — Grey suit');
+  assert.equal(custom.total, 2300);
+  await assert.rejects(priceOrder([{ ...item, sampleImage: '/products/unrelated.jpg' }], 'PICKUP'), /no longer available/);
 });

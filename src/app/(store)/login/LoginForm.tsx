@@ -25,7 +25,7 @@ export default function LoginForm({
       {verified && (
         <div className="auth-alert-success" role="status">
           <CheckCircle2 size={18} className="flex-shrink-0" />
-          <span>Your email has been verified! You can now log in with your credentials.</span>
+          <span>Your email has been verified! You can now log in.</span>
         </div>
       )}
 
@@ -90,6 +90,13 @@ export default function LoginForm({
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+        <Link
+          className="hint"
+          style={{ alignSelf: "flex-end" }}
+          href={`/forgot-password?next=${encodeURIComponent(next)}`}
+        >
+          Forgot password?
+        </Link>
       </label>
 
       <button className="btn primary lg" type="submit" disabled={isPending}>

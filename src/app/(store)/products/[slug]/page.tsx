@@ -9,10 +9,11 @@ import ProductCard from "@/components/ProductCard";
 import { categoryLabel, CUSTOM_LEAD_TIME, DELIVERY, FREE_NAIROBI_OVER } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ksh, splitList } from "@/lib/format";
+import { LOOKS } from "@/lib/looks";
 
 export const revalidate = 60;
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ sample?: string }> };
 
 const getProduct = cache((slug: string) => db.product.findFirst({ where: { slug, active: true } }));
 
@@ -26,11 +27,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const p = await getProduct((await params).slug);
   if (!p) notFound();
 
   const images = [p.image, p.image2].filter(Boolean) as string[];
+  const samples = [...new Set(images)].map((image, index) => ({ image, label: LOOKS.find((look) => `/products/${look.image}` === image)?.name ?? `Sample ${index + 1}` }));
+  const requestedSample = (await searchParams).sample;
+  const initialSample = samples.find((sample) => sample.image === requestedSample)?.image;
   const related = await db.product.findMany({ where: { active: true, category: p.category, id: { not: p.id } }, take: 4, orderBy: { createdAt: "desc" } });
 
   return (
@@ -57,9 +61,10 @@ export default async function ProductPage({ params }: Props) {
           </div>
         )}
         <p className="price">{p.price > 0 ? ksh(p.price) : "Price on consultation"}</p>
-        {p.price > 0 && <AddToBag key={p.id} product={{
+        {p.price > 0 && <AddToBag key={`${p.id}:${initialSample ?? ""}`} product={{
           id: p.id, slug: p.slug, name: p.name, price: p.price, image: p.image,
           sizes: splitList(p.sizes), measureFields: splitList(p.measureFields), allowCustom: p.allowCustom,
+          samples, initialSample,
         }} />}
         <p>Like this style? Consult with us on WhatsApp about fabric, fit, colours and availability. We will confirm your measurements, price and delivery together.</p>
         <p className="hint">Available sizes: {splitList(p.sizes).join(", ")}. {p.allowCustom && "Made-to-measure options available."}</p>

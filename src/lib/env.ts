@@ -17,4 +17,7 @@ export function validateProductionEnv(env: NodeJS.ProcessEnv = process.env) {
   }
   if (!['tls', 'ssl'].includes(env.MAIL_ENCRYPTION ?? '')) errors.push("MAIL_ENCRYPTION must be tls or ssl");
   if (errors.length) throw new Error(`Invalid production configuration: ${errors.join("; ")}`);
+  if (!env.AUTH_TRUSTED_IP_HEADER?.trim()) {
+    console.warn("[env] AUTH_TRUSTED_IP_HEADER is not set: sign-in attempts are limited per email only, not per client IP.");
+  }
 }
