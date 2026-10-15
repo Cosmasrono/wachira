@@ -131,7 +131,7 @@ export default function AddToBag({ product }: Props) {
       </fieldset>
       <p className="err" role="alert">{error}</p>
       <button className="btn primary add-button" type="button" onClick={submit}>{fit === "custom" && step === "measure" ? "Review my measurements →" : `Add to bag · ${ksh(price)}`}</button>
-      <p className="hint">Choose cash or M-Pesa at checkout. Choose delivery or Nairobi CBD pickup.</p>
+      <p className="hint">Choose cash or M-Pesa at checkout. Delivery anywhere in Kenya, or pick up from our Nakuru HQ.</p>
     </div>
   );
 }

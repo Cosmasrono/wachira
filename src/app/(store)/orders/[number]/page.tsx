@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PaymentWatcher from "@/components/PaymentWatcher";
-import { CUSTOM_LEAD_TIME, DELIVERY, type DeliveryMethod } from "@/lib/config";
+import { CUSTOM_LEAD_TIME, deliveryLabel } from "@/lib/config";
 import { ownsOrder, requireCustomer } from "@/lib/customer";
 import { db } from "@/lib/db";
 import { displayPhone, ksh } from "@/lib/format";
@@ -84,7 +84,7 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
         <div>
           <h2>Delivery</h2>
           <p>
-            {DELIVERY[order.deliveryMethod as DeliveryMethod]?.label ?? order.deliveryMethod}
+            {deliveryLabel(order.deliveryMethod)}
             <br />
             {pickup ? "We'll text you when it's ready to collect." : `${order.area}, ${order.county}`}
           </p>

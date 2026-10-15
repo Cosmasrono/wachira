@@ -202,7 +202,7 @@ export default async function AccountPage({
                         {o._count.items} {o._count.items === 1 ? "item" : "items"}
                         {o.hasCustom && <span className="custom-tag">Custom</span>}
                       </td>
-                      <td>{o.deliveryMethod === "PICKUP" ? "Nairobi CBD Pickup" : o.county || "Kenya"}</td>
+                      <td>{o.deliveryMethod === "PICKUP" ? "Pickup" : o.county || "Kenya"}</td>
                       <td className="num price font-semibold">{ksh(o.total)}</td>
                       <td>
                         <span className="pill" data-s={o.status}>
@@ -242,7 +242,7 @@ export default async function AccountPage({
                   </div>
                   <div className="mobile-order-bottom">
                     <span className="text-muted text-xs">
-                      {o.deliveryMethod === "PICKUP" ? "Nairobi CBD" : o.county || "Delivery"}
+                      {o.deliveryMethod === "PICKUP" ? "Pickup" : o.county || "Delivery"}
                     </span>
                     <span className="view-link text-xs flex items-center gap-1 font-semibold text-accent">
                       Track order <ChevronRight size={14} />

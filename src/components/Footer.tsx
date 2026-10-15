@@ -12,7 +12,7 @@ export default function Footer() {
       <div>
         <p className="label">Help</p>
         <p>{/^\d{10,15}$/.test(SITE.whatsapp) ? `WhatsApp: ${displayPhone(SITE.whatsapp)}` : "WhatsApp consultations coming soon"}</p>
-        <p>Delivery across Kenya &middot; Nairobi CBD pickup</p>
+        <p>Delivery across Kenya &middot; Nakuru HQ pickup</p>
         <p><Link href="/#two-ways">How made to measure works</Link></p>
       </div>
       <div>

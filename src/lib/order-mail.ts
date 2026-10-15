@@ -1,6 +1,6 @@
 // Emails sent when an order is paid: a receipt for the customer and a new-order alert for staff.
 
-import { CUSTOM_LEAD_TIME, DELIVERY, SITE, type DeliveryMethod } from "./config";
+import { CUSTOM_LEAD_TIME, deliveryLabel, SITE } from "./config";
 import { db, type Prisma } from "./db";
 import { displayPhone, ksh } from "./format";
 import { mailConfigured, sendMail } from "./mail";
@@ -62,7 +62,7 @@ async function sendOrderPaidEmail(orderId: string, recipient: string, kind: stri
       throw new Error("Mail is not configured");
     }
 
-    const delivery = DELIVERY[order.deliveryMethod as DeliveryMethod]?.label ?? order.deliveryMethod;
+    const delivery = deliveryLabel(order.deliveryMethod);
     const where = order.deliveryMethod === "PICKUP" ? delivery : `${delivery}: ${order.area}, ${order.county}`;
     const itemText = order.items.map((i) => {
       const fit = i.custom ? "Made to measure" : `Size ${i.size}`;

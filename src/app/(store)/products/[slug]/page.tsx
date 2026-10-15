@@ -6,7 +6,7 @@ import ConsultLink from "@/components/ConsultLink";
 import AddToBag from "@/components/AddToBag";
 import ProductImage from "@/components/ProductImage";
 import ProductCard from "@/components/ProductCard";
-import { categoryLabel, CUSTOM_LEAD_TIME, DELIVERY, FREE_NAIROBI_OVER } from "@/lib/config";
+import { categoryLabel, CUSTOM_LEAD_TIME, DELIVERY, HQ } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ksh, splitList } from "@/lib/format";
 import { LOOKS } from "@/lib/looks";
@@ -70,7 +70,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         <p className="hint">Available sizes: {splitList(p.sizes).join(", ")}. {p.allowCustom && "Made-to-measure options available."}</p>
         <ConsultLink name={p.name} slug={p.slug} className="btn primary">Consult about this outfit on WhatsApp ↗</ConsultLink>
         <div className="product-details">
-          <details className="detail-panel"><summary>Delivery & collection</summary><p>Free pickup in Nairobi CBD. Nairobi delivery is {ksh(DELIVERY.NAIROBI.fee)}, or free on orders of {ksh(FREE_NAIROBI_OVER)} or more. Other counties: {ksh(DELIVERY.COUNTY.fee)}.</p>{p.allowCustom && <p>Made-to-measure pieces take {CUSTOM_LEAD_TIME} to make after payment, before delivery.</p>}<p>We will confirm progress and delivery with you on WhatsApp.</p></details>
+          <details className="detail-panel"><summary>Delivery & collection</summary><p>Delivery anywhere in Kenya for {ksh(DELIVERY.COUNTY.fee)}, or free pickup from our {HQ} HQ.</p>{p.allowCustom && <p>Made-to-measure pieces take {CUSTOM_LEAD_TIME} to make after payment, before delivery.</p>}<p>We will confirm progress and delivery with you on WhatsApp.</p></details>
           <details className="detail-panel"><summary>Fabric, care & fit advice</summary><p>Contact us about this piece for fabric composition, care instructions and sizing advice before ordering. When your garment arrives, follow its care label.</p></details>
           <details className="detail-panel"><summary>Exchanges & alterations</summary><p>Need help with the fit? Continue your WhatsApp conversation with us. Ask us to confirm the exchange and alteration terms for this style before ordering, especially for custom pieces.</p></details>
         </div>

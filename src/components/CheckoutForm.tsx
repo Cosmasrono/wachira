@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "./CartProvider";
 import ProductImage from "./ProductImage";
-import { DELIVERY, DELIVERY_METHODS, deliveryFee, FREE_NAIROBI_OVER, type DeliveryMethod } from "@/lib/config";
+import { DELIVERY, DELIVERY_METHODS, deliveryFee, HQ, type DeliveryMethod } from "@/lib/config";
 import { ksh } from "@/lib/format";
 import { orderInput } from "@/lib/validation";
 
@@ -14,7 +14,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
   const { lines, loaded, subtotal, clear, setOpen, contact } = useCart();
 
   const [form, setForm] = useState({
-    customerName: defaultName, phone: "", county: "Nairobi", area: "", notes: "", mpesaPhone: "",
+    customerName: defaultName, phone: "", county: "", area: "", notes: "", mpesaPhone: "",
   });
   const contactPrefilled = useRef(false);
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
     setForm((current) => ({ ...current, customerName: contact.name || current.customerName, phone: current.phone || contact.phone }));
   }, [loaded, contact]);
   const [paymentMethod, setPaymentMethod] = useState<"MPESA" | "CASH">("MPESA");
-  const [method, setMethod] = useState<DeliveryMethod>("NAIROBI");
+  const [method, setMethod] = useState<DeliveryMethod>("COUNTY");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [differentPhone, setDifferentPhone] = useState(false);
@@ -131,7 +131,6 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
               <label key={m} className="option">
                 <input type="radio" name="delivery" checked={method === m} onChange={() => {
                   setMethod(m); setFieldErrors({});
-                  setForm((f) => ({ ...f, county: m === "NAIROBI" ? "Nairobi" : f.county === "Nairobi" ? "" : f.county }));
                 }} />
                 <span>{DELIVERY[m].label}</span>
                 <span className="price">
@@ -140,13 +139,11 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
               </label>
             ))}
           </div>
-          {method === "NAIROBI" && subtotal < FREE_NAIROBI_OVER && (
-            <p className="hint">Add {ksh(FREE_NAIROBI_OVER - subtotal)} more for free Nairobi delivery.</p>
-          )}
+          {method === "PICKUP" && <p className="hint">Collect from our {HQ} HQ. We&apos;ll text you when your order is ready.</p>}
           {method !== "PICKUP" && (
             <div className="two">
               <label htmlFor="county">County / town
-                <input id="county" required maxLength={60} autoComplete="address-level1" {...inputFeedback("county")} value={form.county} onChange={set("county")} placeholder={method === "NAIROBI" ? "Nairobi" : "Nakuru"} />
+                <input id="county" required maxLength={60} autoComplete="address-level1" {...inputFeedback("county")} value={form.county} onChange={set("county")} placeholder="e.g. Nakuru" />
                 {feedback("county")}
               </label>
               <label htmlFor="area">Estate / area

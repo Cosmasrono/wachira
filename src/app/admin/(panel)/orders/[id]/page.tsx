@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DELIVERY, type DeliveryMethod } from "@/lib/config";
+import { deliveryLabel } from "@/lib/config";
 import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { displayPhone, formatDate, ksh } from "@/lib/format";
@@ -92,7 +92,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
             </p>
             <h3>Delivery</h3>
             <p>
-              {DELIVERY[order.deliveryMethod as DeliveryMethod]?.label ?? order.deliveryMethod}
+              {deliveryLabel(order.deliveryMethod)}
               {order.deliveryMethod !== "PICKUP" && <><br />{order.area}, {order.county}</>}
             </p>
             {order.notes && <p className="note">{order.notes}</p>}

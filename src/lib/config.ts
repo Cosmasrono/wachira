@@ -23,18 +23,24 @@ export const CUSTOM_LEAD_TIME = "5–7 days";
 /** Every custom order also asks for the customer's height. */
 export const ALWAYS_MEASURE = "Height";
 
-export const FREE_NAIROBI_OVER = 5000;
+/** Where we're based and where pickups happen. */
+export const HQ = "Nakuru";
 
 export const DELIVERY = {
-  PICKUP: { label: "Pick up – Nairobi CBD", fee: 0 },
-  NAIROBI: { label: "Nairobi delivery", fee: 300 },
-  COUNTY: { label: "Other counties", fee: 550 },
+  PICKUP: { label: `Pick up – ${HQ} HQ`, fee: 0 },
+  COUNTY: { label: "Delivery anywhere in Kenya", fee: 550 },
 } as const;
 
 export type DeliveryMethod = keyof typeof DELIVERY;
 export const DELIVERY_METHODS = Object.keys(DELIVERY) as DeliveryMethod[];
 
-export function deliveryFee(method: DeliveryMethod, subtotal: number) {
-  if (method === "NAIROBI" && subtotal >= FREE_NAIROBI_OVER) return 0;
+/** Labels for methods that are no longer offered, so older orders still read correctly. */
+const PAST_DELIVERY: Record<string, string> = { NAIROBI: "Nairobi delivery" };
+
+export function deliveryLabel(method: string) {
+  return DELIVERY[method as DeliveryMethod]?.label ?? PAST_DELIVERY[method] ?? method;
+}
+
+export function deliveryFee(method: DeliveryMethod, _subtotal: number) {
   return DELIVERY[method].fee;
 }

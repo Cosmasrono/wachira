@@ -8,7 +8,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   return (
     <CartProvider>
       <div className="announce">
-        Made in Nairobi &middot; Consult with us on WhatsApp
+        Made in Nakuru &middot; Delivered countrywide &middot; Consult with us on WhatsApp
       </div>
       <Header />
       <main className="wrap">{children}</main>

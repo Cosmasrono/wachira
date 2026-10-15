@@ -28,7 +28,7 @@ test("cash orders progress through preparation and cash collection before comple
   assert.deepEqual(nextActions({ ...order, status: "READY" }), ["PAID", "CANCELLED"]);
   assert.deepEqual(nextActions({ ...order, status: "PAID" }), ["DELIVERED", "CANCELLED"]);
   assert.equal(trackerSteps({ ...order, status: "READY" }).find(s => s.status === "PAID")?.done, false);
-  assert.deepEqual(nextActions({ ...order, hasCustom: false, deliveryMethod: "NAIROBI" }), ["DISPATCHED", "CANCELLED"]);
+  assert.deepEqual(nextActions({ ...order, hasCustom: false, deliveryMethod: "COUNTY" }), ["DISPATCHED", "CANCELLED"]);
   assert.deepEqual(nextActions({ ...order, paymentMethod: "MPESA", status: "PENDING_PAYMENT" }), ["PAID", "CANCELLED"]);
 });
 

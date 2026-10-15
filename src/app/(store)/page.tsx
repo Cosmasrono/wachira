@@ -4,7 +4,7 @@ import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import ProductImage from "@/components/ProductImage";
 import StyleGallery from "@/components/StyleGallery";
-import { CATEGORIES, CUSTOM_FEE, CUSTOM_LEAD_TIME, DELIVERY, FREE_NAIROBI_OVER } from "@/lib/config";
+import { CATEGORIES, CUSTOM_FEE, CUSTOM_LEAD_TIME, DELIVERY, HQ } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ksh } from "@/lib/format";
 import {
@@ -36,12 +36,12 @@ export default async function Home() {
         <div className="home-hero-copy">
           <p className="home-eyebrow">
             <span className="dot" aria-hidden="true" />
-            Tailored suits &amp; matching sets &middot; Nairobi
+            Tailored suits &amp; matching sets &middot; {HQ}, delivered across Kenya
           </p>
           <h1 id="home-h">Clothes that fit you. <em>Perfectly.</em></h1>
           <p className="home-lead">
             Choose a suit or matching set, order online, or consult with us on <b>WhatsApp</b> about your <b>size and measurements</b>.
-            We confirm the details with you, sew it in Nairobi and arrange delivery across Kenya.
+            We confirm the details with you, sew it at our {HQ} HQ and deliver anywhere in Kenya.
           </p>
           <div className="home-ctas">
             <Link className="btn primary lg flex items-center gap-2" href="/shop">
@@ -243,21 +243,15 @@ export default async function Home() {
             </div>
             <div>
               <dt className="flex items-center gap-2">
-                <Truck size={16} className="text-accent" /> Nairobi delivery
+                <Truck size={16} className="text-accent" /> Countrywide delivery
               </dt>
-              <dd>{ksh(DELIVERY.NAIROBI.fee)}, or <b>free</b> on orders over {ksh(FREE_NAIROBI_OVER)}.</dd>
-            </div>
-            <div>
-              <dt className="flex items-center gap-2">
-                <Truck size={16} className="text-accent" /> Rest of Kenya
-              </dt>
-              <dd>{ksh(DELIVERY.COUNTY.fee)} to any county.</dd>
+              <dd>{ksh(DELIVERY.COUNTY.fee)} to any county in Kenya.</dd>
             </div>
             <div>
               <dt className="flex items-center gap-2">
                 <ShoppingBag size={16} className="text-accent" /> Pick up
               </dt>
-              <dd>Free collection in Nairobi CBD.</dd>
+              <dd>Free collection from our {HQ} HQ.</dd>
             </div>
           </dl>
           <Link href="/shop" className="btn primary lg flex items-center gap-2" style={{ display: "inline-flex" }}>
