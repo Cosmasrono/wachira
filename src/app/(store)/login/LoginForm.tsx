@@ -18,9 +18,12 @@ export default function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(defaultEmail);
 
+  const [role, setRole] = useState(next.startsWith("/admin") ? "admin" : "customer");
+  const destination = role === "admin" ? "/admin" : next.startsWith("/admin") ? "/account" : next;
+
   return (
     <form action={formAction} className="stack" noValidate>
-      <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="next" value={destination} />
 
       {verified && (
         <div className="auth-alert-success" role="status">
@@ -28,6 +31,14 @@ export default function LoginForm({
           <span>Your email has been verified! You can now log in.</span>
         </div>
       )}
+
+      <label htmlFor="role">Account type
+        <select id="role" name="role" value={role} disabled={isPending} onChange={(e) => setRole(e.target.value)}>
+          <option value="customer">Customer</option>
+          <option value="admin">Admin (shop owner)</option>
+        </select>
+      </label>
+      {role === "admin" && <p className="hint">Admin access is reserved for the shop owner's registered email.</p>}
 
       {state?.error && (
         <div className="auth-alert-error" role="alert">
@@ -47,7 +58,7 @@ export default function LoginForm({
           </p>
           <Link
             className="btn primary sm"
-            href={`/verify-email?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(next)}`}
+            href={`/verify-email?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(destination)}`}
           >
             Enter verification code &rarr;
           </Link>
@@ -93,7 +104,7 @@ export default function LoginForm({
         <Link
           className="hint"
           style={{ alignSelf: "flex-end" }}
-          href={`/forgot-password?next=${encodeURIComponent(next)}`}
+          href={`/forgot-password?next=${encodeURIComponent(destination)}`}
         >
           Forgot password?
         </Link>
@@ -113,7 +124,7 @@ export default function LoginForm({
 
       <div className="auth-footer">
         <span>Don&apos;t have an account?</span>
-        <Link href={`/signup?next=${encodeURIComponent(next)}`}>Create an account</Link>
+        <Link href={`/signup?next=${encodeURIComponent(destination)}`}>Create an account</Link>
       </div>
     </form>
   );

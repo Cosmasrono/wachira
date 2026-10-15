@@ -16,7 +16,7 @@ export default async function SignupPage({
   const customer = await currentCustomer();
   const next = safeNext((await searchParams).next);
 
-  if (customer) {
+  if (customer && !next.startsWith("/admin")) {
     redirect(next === "/shop" ? "/account" : next);
   }
 

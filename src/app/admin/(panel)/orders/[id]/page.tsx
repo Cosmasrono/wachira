@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DELIVERY, type DeliveryMethod } from "@/lib/config";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { displayPhone, formatDate, ksh } from "@/lib/format";
 import { nextActions, statusLabel } from "@/lib/order-status";
 import { updateOrderStatus } from "../../../actions";
 
 export default async function AdminOrder({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const order = await db.order.findUnique({
     where: { id },
@@ -36,7 +38,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
             <div className="cta-row">
               {actions.map((s) => (
                 <button key={s} name="status" value={s} className={s === "CANCELLED" ? "btn danger" : "btn primary"}>
-                  {s === "CANCELLED" ? "Cancel order" : s === "PAID" ? "Verify payment & mark paid" : `Mark as ${statusLabel(s, order.deliveryMethod).toLowerCase()}`}
+                  {s === "CANCELLED" ? "Cancel order" : s === "PAID" ? (order.paymentMethod === "CASH" ? "Confirm cash received" : "Verify payment & mark paid") : `Mark as ${statusLabel(s, order.deliveryMethod).toLowerCase()}`}
                 </button>
               ))}
             </div>
@@ -98,9 +100,11 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
 
           <div className="panel">
             <h2>Payment</h2>
+            <p>Method: {order.paymentMethod === "CASH" ? "Cash" : "M-Pesa"}</p>
+            {order.paymentMethod === "CASH" && !order.paidAt && <p className="hint">Cash due: {ksh(order.total)}. Confirm payment only after receiving the cash.</p>}
             <p>
-              M-Pesa number: {displayPhone(order.mpesaPhone)}
-              <br />Receipt: <span className="mono">{order.mpesaReceipt ?? "—"}</span>
+              {order.paymentMethod !== "CASH" && <>M-Pesa number: {displayPhone(order.mpesaPhone)}
+              <br />Receipt: <span className="mono">{order.mpesaReceipt ?? "—"}</span></>}
               {order.paidAt && <><br />Paid: {formatDate(order.paidAt)}</>}
             </p>
             {order.paymentNote && <p className="note">{order.paymentNote}</p>}

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { categoryLabel } from "@/lib/config";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { ksh, splitList } from "@/lib/format";
 import { LOOKS } from "@/lib/looks";
 
 export default async function AdminProducts() {
+  await requireAdmin();
   const products = await db.product.findMany({ orderBy: { createdAt: "desc" } });
   const samples = LOOKS.filter((look) => !products.some((product) => product.slug === look.productSlug || product.image === `/products/${look.image}` || product.image2 === `/products/${look.image}`));
 

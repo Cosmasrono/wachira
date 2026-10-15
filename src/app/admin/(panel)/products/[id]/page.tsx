@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import ProductForm from "./ProductForm";
 import { LOOKS } from "@/lib/looks";
 
 export default async function EditProduct({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ sample?: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const { sample: sampleImage } = await searchParams;
   const sample = id === "new" ? LOOKS.find((look) => look.image === sampleImage) : undefined;

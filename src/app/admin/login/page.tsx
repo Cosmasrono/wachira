@@ -1,13 +1,5 @@
-import type { Metadata } from "next";
-import LoginForm from "./LoginForm";
-
-export const metadata: Metadata = { title: "Admin login", robots: { index: false } };
+import { redirect } from "next/navigation";
 
 export default function AdminLogin() {
-  return (
-    <main className="admin-login">
-      <h1>Wachira admin</h1>
-      <LoginForm />
-    </main>
-  );
+  redirect("/login?next=%2Fadmin");
 }

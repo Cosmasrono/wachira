@@ -77,8 +77,8 @@ async function sendOrderPaidEmail(orderId: string, recipient: string, kind: stri
       `<tr><td style="padding:6px 0;border-top:1px solid #eee">Delivery</td><td style="text-align:right;border-top:1px solid #eee">${order.deliveryFee ? ksh(order.deliveryFee) : "Free"}</td></tr>` +
       `<tr><td style="padding:6px 0"><b>Total paid</b></td><td style="text-align:right"><b>${ksh(order.total)}</b></td></tr>`;
     const table = `<table style="width:100%;border-collapse:collapse;font-size:14px">${itemRows}${totals}</table>`;
-    const receipt = order.mpesaReceipt ? ` (M-Pesa ${order.mpesaReceipt})` : "";
-    const sewing = order.hasCustom ? `Made-to-measure pieces take ${CUSTOM_LEAD_TIME} to sew before they are sent.` : "";
+    const receipt = order.paymentMethod === "CASH" ? " (cash)" : order.mpesaReceipt ? ` (M-Pesa ${order.mpesaReceipt})` : "";
+    const sewing = order.hasCustom && order.paymentMethod !== "CASH" ? `Made-to-measure pieces take ${CUSTOM_LEAD_TIME} to sew before they are sent.` : "";
 
     const mails: Promise<unknown>[] = [];
 

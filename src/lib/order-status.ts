@@ -1,4 +1,5 @@
 export const STATUS = {
+  CASH_PENDING: "Order placed · cash due",
   PENDING_PAYMENT: "Awaiting payment",
   PAYMENT_FAILED: "Payment failed",
   PAID: "Paid",
@@ -13,14 +14,15 @@ export type OrderStatus = keyof typeof STATUS;
 
 export const isStatus = (s: string): s is OrderStatus => s in STATUS;
 
-type FlowInput = { status: string; hasCustom: boolean; deliveryMethod: string };
+type FlowInput = { status: string; hasCustom: boolean; deliveryMethod: string; paymentMethod?: string };
 
-/** The steps an order goes through after payment. */
+/** Cash orders are prepared before payment is collected at handover. */
 export function flow(o: Omit<FlowInput, "status">): OrderStatus[] {
   return [
-    "PAID",
+    o.paymentMethod === "CASH" ? "CASH_PENDING" : "PAID",
     ...(o.hasCustom ? (["SEWING"] as const) : []),
     o.deliveryMethod === "PICKUP" ? "READY" : "DISPATCHED",
+    ...(o.paymentMethod === "CASH" ? (["PAID"] as const) : []),
     "DELIVERED",
   ];
 }

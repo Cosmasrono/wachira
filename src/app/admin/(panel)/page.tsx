@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { SITE } from "@/lib/config";
 
 export default async function AdminHome() {
+  await requireAdmin();
   const [total, published] = await Promise.all([
     db.product.count(), db.product.count({ where: { active: true } }),
   ]);

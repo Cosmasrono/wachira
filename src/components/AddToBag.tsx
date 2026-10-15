@@ -122,7 +122,7 @@ export default function AddToBag({ product }: Props) {
           {note.trim() && <p className="hint">Fit notes: {note}</p>}
           <button className="linkish" type="button" onClick={() => { setStep("measure"); requestAnimationFrame(() => measureHeading.current?.focus()); }}>Edit measurements</button>
         </div>}
-        <p className="note">Custom tailoring takes <b>{CUSTOM_LEAD_TIME}</b> after payment, before delivery.</p>
+        <p className="note">Custom tailoring takes <b>{CUSTOM_LEAD_TIME}</b> after your order is confirmed, before delivery.</p>
       </div>}
       <fieldset className="outfit-contact"><legend>3. Your contact details</legend>
         <label htmlFor="outfit-name">Full name<input id="outfit-name" autoComplete="name" required maxLength={80} value={contact.name} onChange={(e) => { setContact({ ...contact, name: e.target.value }); setError(""); }} /></label>
@@ -131,7 +131,7 @@ export default function AddToBag({ product }: Props) {
       </fieldset>
       <p className="err" role="alert">{error}</p>
       <button className="btn primary add-button" type="button" onClick={submit}>{fit === "custom" && step === "measure" ? "Review my measurements →" : `Add to bag · ${ksh(price)}`}</button>
-      <p className="hint">Pay with M-Pesa at checkout. Choose delivery or Nairobi CBD pickup.</p>
+      <p className="hint">Choose cash or M-Pesa at checkout. Choose delivery or Nairobi CBD pickup.</p>
     </div>
   );
 }

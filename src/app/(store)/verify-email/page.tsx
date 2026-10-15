@@ -20,7 +20,7 @@ export default async function VerifyEmailPage({
   const next = safeNext(params.next);
   const mode = params.mode === "reset" ? "reset" : "verify";
 
-  if (customer) {
+  if (customer && !next.startsWith("/admin")) {
     redirect(next === "/shop" ? "/account" : next);
   }
 

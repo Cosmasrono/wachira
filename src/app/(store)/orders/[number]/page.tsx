@@ -18,7 +18,8 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
   if (!order || !ownsOrder(customer, order)) notFound();
 
   const pickup = order.deliveryMethod === "PICKUP";
-  const paid = !["PENDING_PAYMENT", "PAYMENT_FAILED"].includes(order.status);
+  const paid = !!order.paidAt;
+  const cash = order.paymentMethod === "CASH";
   const steps = trackerSteps(order);
 
   return (
@@ -29,12 +30,13 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
         <span className="pill" data-s={order.status}>{statusLabel(order.status, order.deliveryMethod)}</span>
       </div>
 
-      <PaymentWatcher
+      {!cash && <PaymentWatcher
         number={order.number}
         status={order.status}
         paymentNote={order.paymentNote}
         mpesaPhone={displayPhone(order.mpesaPhone)}
-      />
+      />}
+      {cash && !paid && order.status !== "CANCELLED" && <div className="pay-box waiting"><b>Your order is placed</b><p>Pay {ksh(order.total)} in cash {pickup ? "when you collect your order" : "when your order is delivered"}. No M-Pesa payment is needed.</p></div>}
 
       {paid && order.status !== "CANCELLED" && (
         <p>

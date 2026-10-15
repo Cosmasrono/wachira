@@ -18,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ number:
 
   const order = await db.order.findUnique({ where: { number } });
   if (!order || !ownsOrder(customer, order)) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (order.paymentMethod === "CASH") return NextResponse.json({ error: "This order is payable in cash on delivery or pickup." }, { status: 409 });
 
   const lastRequest = order.paymentRequestedAt?.getTime() ?? 0;
   const canRetry =

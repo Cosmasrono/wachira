@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { AlertCircle, Loader2, ArrowRight } from "lucide-react";
 import { signupCustomerAction } from "../auth-actions";
 
 export default function SignupForm({ next }: { next: string }) {
   const [state, formAction, isPending] = useActionState(signupCustomerAction, {});
 
+  const [role, setRole] = useState(next.startsWith("/admin") ? "admin" : "customer");
+  const destination = role === "admin" ? "/admin" : next.startsWith("/admin") ? "/account" : next;
+
   return (
     <form action={formAction} className="stack" noValidate>
-      <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="next" value={destination} />
+
+      <label htmlFor="role">Account type
+        <select id="role" name="role" value={role} disabled={isPending} onChange={(e) => setRole(e.target.value)}>
+          <option value="customer">Customer</option>
+          <option value="admin">Admin (shop owner)</option>
+        </select>
+      </label>
+      {role === "admin" && <p className="hint">Admin access is reserved for the shop owner's registered email.</p>}
 
       {state?.error && (
         <div className="auth-alert-error" role="alert">
@@ -50,7 +61,7 @@ export default function SignupForm({ next }: { next: string }) {
 
       <div className="auth-footer">
         <span>Already have an account?</span>
-        <Link href={`/login?next=${encodeURIComponent(next)}`}>Log in</Link>
+        <Link href={`/login?next=${encodeURIComponent(destination)}`}>Log in</Link>
       </div>
     </form>
   );

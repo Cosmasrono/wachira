@@ -18,7 +18,8 @@ export const orderInput = z
   .object({
     customerName: z.string().trim().min(2, "Enter your full name.").max(80),
     phone: phone("Enter a phone number like 0712 345 678."),
-    mpesaPhone: phone("Enter the Safaricom number you'll pay from."),
+    paymentMethod: z.enum(["MPESA", "CASH"]).default("MPESA"),
+    mpesaPhone: z.string().max(30).optional(),
     deliveryMethod: z.enum(DELIVERY_METHODS as [DeliveryMethod, ...DeliveryMethod[]]),
     county: z.string().trim().max(60).default(""),
     area: z.string().trim().max(120).default(""),
@@ -26,6 +27,9 @@ export const orderInput = z
     items: z.array(orderItemInput).min(1, "Your bag is empty.").max(30),
   })
   .superRefine((v, ctx) => {
+    if (v.paymentMethod === "MPESA" && !normalizePhone(v.mpesaPhone ?? "")) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["mpesaPhone"], message: "Enter the Safaricom number you'll pay from." });
+    }
     if (v.deliveryMethod !== "PICKUP") {
       if (!v.county) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["county"], message: "Enter your county or town." });
       if (!v.area) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["area"], message: "Enter your estate or area so we can deliver." });

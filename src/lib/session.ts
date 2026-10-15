@@ -14,14 +14,14 @@ export const CUSTOMER_SESSION_DAYS = 14;
 /** How long a staff member stays signed in. */
 export const SESSION_DAYS = 7;
 
-/** Staff who may use /admin, from ADMIN_EMAILS (comma-separated). */
+/** Exactly one configured owner may use /admin. Multiple different emails fail closed. */
 export function isAdminEmail(email: string | undefined) {
   if (!email) return false;
   const allowed = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+  return new Set(allowed).size === 1 && allowed[0] === email.trim().toLowerCase();
 }
 
 export type SessionKind = "admin" | "customer";

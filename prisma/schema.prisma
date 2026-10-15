@@ -38,6 +38,7 @@ model Order {
   number             String    @unique // e.g. WCH-7KQ2MX
   status             String    @default("PENDING_PAYMENT")
   customerName       String
+  paymentMethod      String    @default("MPESA") // MPESA | CASH (on delivery or pickup)
   customerUid        String?
   customerEmail      String?
   phone              String 
@@ -65,6 +66,8 @@ model Order {
   @@index([status, createdAt])
   @@index([customerUid, createdAt])
 }
+
+
 
 model OrderItem {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -120,6 +123,7 @@ model PaymentAttempt {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   orderId   String   @db.ObjectId
   requestId String   @unique
+  providerReference String? // PayHero reference used for authenticated status checks
   amount    Int
   phone     String
   status    String   @default("PENDING")

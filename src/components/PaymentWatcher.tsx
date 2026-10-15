@@ -26,20 +26,26 @@ export default function PaymentWatcher({ number, status, paymentNote, mpesaPhone
     if (status !== "PENDING_PAYMENT" && status !== "PAYMENT_FAILED") return;
     setWaitedTooLong(false);
     const started = Date.now();
+    let inFlight = false;
+    const controller = new AbortController();
     const timer = setInterval(async () => {
+      if (inFlight) return;
       if (Date.now() - started > GIVE_UP_MS) {
         setWaitedTooLong(true);
         clearInterval(timer);
         return;
       }
-      const res = await fetch(`/api/orders/${number}`, { cache: "no-store" }).catch(() => null);
+      inFlight = true;
+      const res = await fetch(`/api/orders/${number}`, { cache: "no-store", signal: controller.signal }).catch(() => null);
       const data = await res?.json().catch(() => null);
+      inFlight = false;
+      if (controller.signal.aborted) return;
       if (data?.status && data.status !== status) {
         clearInterval(timer);
         router.refresh();
       }
     }, POLL_MS);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); controller.abort(); };
   }, [number, status, router, attempt]);
 
   async function retry(e: React.FormEvent) {

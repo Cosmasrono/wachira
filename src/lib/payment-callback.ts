@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+export const payheroCallbackSchema = z.object({
+  response: z.object({
+    CheckoutRequestID: z.string().min(1).max(200),
+    ExternalReference: z.string().min(1).max(200),
+    ResultCode: z.union([z.number().int(), z.string().regex(/^\d+$/)]),
+    Amount: z.number().positive().finite().optional(),
+    MpesaReceiptNumber: z.string().regex(/^[A-Za-z0-9]{5,40}$/).optional(),
+    Phone: z.string().max(30).optional(),
+  }),
+});
+
 export const callbackSchema = z.object({
   Body: z.object({ stkCallback: z.object({
     CheckoutRequestID: z.string().min(1).max(200),

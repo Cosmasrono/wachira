@@ -22,6 +22,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
     contactPrefilled.current = true;
     setForm((current) => ({ ...current, customerName: contact.name || current.customerName, phone: current.phone || contact.phone }));
   }, [loaded, contact]);
+  const [paymentMethod, setPaymentMethod] = useState<"MPESA" | "CASH">("MPESA");
   const [method, setMethod] = useState<DeliveryMethod>("NAIROBI");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,7 +60,8 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
     setError("");
     const payload = {
       ...form,
-      mpesaPhone: differentPhone ? form.mpesaPhone : form.phone,
+      paymentMethod,
+      mpesaPhone: paymentMethod === "CASH" ? undefined : differentPhone ? form.mpesaPhone : form.phone,
       deliveryMethod: method,
       items: lines.map((l) => ({ productId: l.productId, qty: l.qty,
         size: l.measurements ? undefined : l.size, measurements: l.measurements, fitNote: l.fitNote, sampleImage: l.sampleImage })),
@@ -159,7 +161,14 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
         </fieldset>
 
         <fieldset disabled={busy}>
-          <legend>3. Pay with M-Pesa</legend>
+          <legend>3. Payment method</legend>
+          <div className="options">
+            {(["MPESA", "CASH"] as const).map((value) => <label className="option" key={value}>
+              <input type="radio" name="paymentMethod" value={value} checked={paymentMethod === value} onChange={() => { setPaymentMethod(value); setFieldErrors({}); }} />
+              <span>{value === "MPESA" ? "M-Pesa" : method === "PICKUP" ? "Cash on pickup" : "Cash on delivery"}</span>
+            </label>)}
+          </div>
+          {paymentMethod === "MPESA" ? <>
           <p className="hint">{differentPhone ? "Enter the number you want to pay from." : form.phone ? `We will send the payment prompt to ${form.phone}.` : "We will use the phone number you enter above."}</p>
           <label className="payment-phone-toggle"><input type="checkbox" checked={differentPhone} onChange={(e) => { setDifferentPhone(e.target.checked); setFieldErrors((errors) => ({ ...errors, mpesaPhone: "" })); }} />Pay from a different number</label>
           {differentPhone && <label htmlFor="mpesaPhone">M-Pesa number
@@ -167,6 +176,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
             {feedback("mpesaPhone")}
           </label>}
           <p className="hint">Enter your PIN only on the M-Pesa prompt on your phone. You can track your order after payment.</p>
+          </> : <p className="hint">Place your order now and pay {ksh(total)} in cash {method === "PICKUP" ? "when you collect it" : "when it is delivered"}.</p>}
         </fieldset>
       </div>
 
@@ -188,7 +198,7 @@ export default function CheckoutForm({ defaultName = "" }: { defaultName?: strin
         <div className="row total"><span>Total</span><span className="price">{ksh(total)}</span></div>
         <p className="err" role="alert" ref={errorRef} tabIndex={-1}>{error}</p>
         <button className="mpesa" type="submit" disabled={busy}>
-          {busy ? "Sending M-Pesa prompt…" : `Pay ${ksh(total)} with M-Pesa`}
+          {busy ? (paymentMethod === "CASH" ? "Placing your order…" : "Sending M-Pesa prompt…") : paymentMethod === "CASH" ? `Place order · Pay ${ksh(total)} in cash` : `Pay ${ksh(total)} with M-Pesa`}
         </button>
       </aside>
     </form>

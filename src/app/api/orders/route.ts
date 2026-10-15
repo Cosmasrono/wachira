@@ -24,15 +24,19 @@ export async function POST(req: Request) {
   try {
     const priced = await priceOrder(v.items, v.deliveryMethod);
     const pickup = v.deliveryMethod === "PICKUP";
+    const cash = v.paymentMethod === "CASH";
+    const status = cash ? "CASH_PENDING" : "PENDING_PAYMENT";
 
     const order = await db.order.create({
       data: {
         number: newOrderNumber(),
         customerName: v.customerName,
+        paymentMethod: v.paymentMethod,
+        status,
         customerUid: customer.uid,
         customerEmail: customer.email,
         phone: normalizePhone(v.phone)!,
-        mpesaPhone: normalizePhone(v.mpesaPhone)!,
+        mpesaPhone: cash ? "" : normalizePhone(v.mpesaPhone ?? "")!,
         deliveryMethod: v.deliveryMethod,
         county: pickup ? "" : v.county,
         area: pickup ? "" : v.area,
@@ -42,11 +46,11 @@ export async function POST(req: Request) {
         total: priced.total,
         hasCustom: priced.hasCustom,
         items: { create: priced.lines },
-        events: { create: { status: "PENDING_PAYMENT", note: "Order placed" } },
+        events: { create: { status, note: cash ? "Order placed — cash due on delivery or pickup" : "Order placed" } },
       },
     });
 
-    await requestPayment(order);
+    if (!cash) await requestPayment(order);
     return NextResponse.json({ number: order.number });
   } catch (e) {
     if (e instanceof PricingError) {

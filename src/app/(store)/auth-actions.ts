@@ -19,6 +19,9 @@ import { safeNext } from "@/lib/customer";
 import { db } from "@/lib/db";
 import { allowAuthRequest } from "@/lib/auth-throttle";
 import {
+  ADMIN_COOKIE,
+  SESSION_DAYS,
+  isAdminEmail,
   CUSTOMER_COOKIE,
   CUSTOMER_SESSION_DAYS,
   createSession,
@@ -35,17 +38,17 @@ export type AuthState = {
 
 const emailInput = z.string().trim().toLowerCase().email().max(200);
 
-async function signIn(user: { id: string; email: string; name: string; sessionKey: string | null }) {
+async function signIn(user: { id: string; email: string; name: string; sessionKey: string | null }, admin = false) {
   const session = { uid: user.id, email: user.email, name: user.name || undefined, version: user.sessionKey ?? undefined };
   (await cookies()).set(
-    CUSTOMER_COOKIE,
-    await createSession("customer", session, CUSTOMER_SESSION_DAYS),
+    admin ? ADMIN_COOKIE : CUSTOMER_COOKIE,
+    await createSession(admin ? "admin" : "customer", session, admin ? SESSION_DAYS : CUSTOMER_SESSION_DAYS),
     {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: CUSTOMER_SESSION_DAYS * 24 * 60 * 60,
+      maxAge: (admin ? SESSION_DAYS : CUSTOMER_SESSION_DAYS) * 24 * 60 * 60,
     }
   );
 }
@@ -67,7 +70,7 @@ export async function signupCustomerAction(
     return { error: "Authentication is temporarily unavailable. Please try again later." };
   }
 
-  const next = safeNext(String(formData.get("next") ?? ""));
+  const next = formData.get("role") === "admin" ? "/admin" : safeNext(String(formData.get("next") ?? ""));
   const parsed = signupSchema.safeParse({
     email: String(formData.get("email") ?? ""),
   });
@@ -76,6 +79,7 @@ export async function signupCustomerAction(
   }
 
   const { email } = parsed.data;
+  if (next.startsWith("/admin") && !isAdminEmail(email)) return { error: "Admin registration is reserved for the configured shop owner email." };
   if (!await allowAuthRequest("signup", email, 5)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
   const existing = await db.user.findUnique({ where: { email } });
@@ -104,7 +108,7 @@ export async function setPasswordAction(
     return { error: "Authentication is temporarily unavailable. Please try again later." };
   }
 
-  const next = safeNext(String(formData.get("next") ?? ""));
+  const next = formData.get("role") === "admin" ? "/admin" : safeNext(String(formData.get("next") ?? ""));
   const parsed = setPasswordSchema.safeParse({
     email: String(formData.get("email") ?? ""),
     code: String(formData.get("code") ?? ""),
@@ -117,12 +121,13 @@ export async function setPasswordAction(
   }
 
   const { email, code, password, name } = parsed.data;
+  if (next.startsWith("/admin") && !isAdminEmail(email)) return { error: "This email is not authorized for admin access." };
   if (!await allowAuthRequest("set-password", email)) return { error: "Too many attempts. Please try again in 15 minutes." };
 
   const result = await setPasswordWithCode(email, code, password, name);
   if (!result.ok) return { error: result.error };
 
-  await signIn(result.user);
+  await signIn(result.user, next.startsWith("/admin"));
   redirect(next === "/shop" ? "/account" : next);
 }
 
@@ -153,7 +158,7 @@ export async function forgotPasswordAction(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  const next = safeNext(String(formData.get("next") ?? ""));
+  const next = formData.get("role") === "admin" ? "/admin" : safeNext(String(formData.get("next") ?? ""));
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const sent = await requestPasswordCodeAction(email);
   if (!sent.ok) return { error: sent.error, email };
@@ -173,7 +178,7 @@ export async function loginCustomerAction(
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
   };
-  const next = safeNext(String(formData.get("next") ?? ""));
+  const next = formData.get("role") === "admin" ? "/admin" : safeNext(String(formData.get("next") ?? ""));
 
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
@@ -200,7 +205,8 @@ export async function loginCustomerAction(
     };
   }
 
-  await signIn(user);
+  if (next.startsWith("/admin") && !isAdminEmail(user.email)) return { error: "This account is not authorized for admin access." };
+  await signIn(user, next.startsWith("/admin"));
   redirect(next === "/shop" ? "/account" : next);
 }
 

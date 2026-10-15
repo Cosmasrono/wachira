@@ -19,7 +19,7 @@ export default async function LoginPage({
   const defaultEmail = params.email?.trim() || "";
   const verified = params.verified === "true" || params.verified === "1";
 
-  if (customer) {
+  if (customer && !next.startsWith("/admin")) {
     redirect(next === "/shop" ? "/account" : next);
   }
 
@@ -27,7 +27,7 @@ export default async function LoginPage({
     <section className="first auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <p className="label">Customer Portal</p>
+          <p className="label">Your Wachira account</p>
           <h1>Welcome back</h1>
           <p className="lead">Log in to view your orders, saved measurements, and checkout faster.</p>
         </div>

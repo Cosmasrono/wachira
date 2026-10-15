@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { displayPhone, formatDate, ksh } from "@/lib/format";
 import { isStatus, STATUS, statusLabel } from "@/lib/order-status";
@@ -6,9 +7,10 @@ import { isStatus, STATUS, statusLabel } from "@/lib/order-status";
 type Props = { searchParams: Promise<{ status?: string }> };
 
 // Orders that need someone to act on them.
-const TO_DO = ["PAID", "SEWING", "READY", "DISPATCHED"];
+const TO_DO = ["CASH_PENDING", "PAID", "SEWING", "READY", "DISPATCHED"];
 
 export default async function AdminOrders({ searchParams }: Props) {
+  await requireAdmin();
   const { status } = await searchParams;
   const filter = status === "todo" ? "todo" : status && isStatus(status) ? status : "all";
 
@@ -57,7 +59,7 @@ export default async function AdminOrders({ searchParams }: Props) {
                 <td>{formatDate(o.createdAt)}</td>
                 <td>{o.customerName}<small>{displayPhone(o.phone)}</small></td>
                 <td>{o._count.items}{o.hasCustom && <span className="custom-tag">Custom</span>}</td>
-                <td>{o.deliveryMethod === "PICKUP" ? "Pick up" : o.county}</td>
+                <td>{o.deliveryMethod === "PICKUP" ? "Pick up" : o.county}<small>{o.paymentMethod === "CASH" ? "Cash" : "M-Pesa"}</small></td>
                 <td className="num price">{ksh(o.total)}</td>
                 <td><span className="pill" data-s={o.status}>{statusLabel(o.status, o.deliveryMethod)}</span></td>
               </tr>

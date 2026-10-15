@@ -3,6 +3,7 @@ import { friendlyResult } from "@/lib/mpesa";
 import { findPaymentOrder, markFailed, markPaid } from "@/lib/orders";
 import { callbackSchema, paidMetadata } from "@/lib/payment-callback";
 import { processOrderMailJobs } from "@/lib/order-mail";
+import { db } from "@/lib/db";
 
 /**
  * Safaricom posts the STK push result here. The secret in the URL stops
@@ -19,6 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ secret:
   const parsed = callbackSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ResultCode: 1, ResultDesc: "Invalid callback" }, { status: 400 });
   const cb = parsed.data.Body.stkCallback;
+  const attempt = await db.paymentAttempt.findUnique({ where: { requestId: cb.CheckoutRequestID } });
+  if (attempt?.providerReference) return NextResponse.json({ ResultCode: 1, ResultDesc: "Use PayHero callback" }, { status: 400 });
 
   const order = await findPaymentOrder(cb.CheckoutRequestID);
   // A callback can race the persistence of the STK response; don't acknowledge it as processed.
