@@ -34,10 +34,6 @@ export default async function Home() {
           <Image src="/home/hero-fitting.jpg" alt="" fill priority sizes="100vw" />
         </div>
         <div className="home-hero-copy">
-          <p className="home-eyebrow">
-            <span className="dot" aria-hidden="true" />
-            Tailored suits &amp; matching sets &middot; {HQ}, delivered across Kenya
-          </p>
           <h1 id="home-h">Clothes that fit you. <em>Perfectly.</em></h1>
           <p className="home-lead">
             Choose a suit or matching set, order online, or consult with us on <b>WhatsApp</b> about your <b>size and measurements</b>.
